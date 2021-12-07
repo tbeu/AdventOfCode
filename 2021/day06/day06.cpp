@@ -41,11 +41,14 @@ static uint64_t count(const std::vector<uint16_t>& numbers, size_t end)
 
 int main(int argc, char* argv[])
 {
-    std::vector<std::string> lines;
+    std::vector<std::string> lines{};
     if (argc == 2) {
         if (!readFile(argv[1], lines)) {
             return EXIT_FAILURE;
         }
+    }
+    if (lines.size() < 1) {
+        return EXIT_FAILURE;
     }
 
     std::vector<uint16_t> numbers{};
