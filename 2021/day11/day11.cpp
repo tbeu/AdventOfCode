@@ -1,9 +1,15 @@
+#if defined(_MSC_VER)
+#include "../../cppconlib/include/conmanip.h"
+#endif
+
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <queue>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <gsl/util>
@@ -27,6 +33,30 @@ constexpr size_t dim{10};
 using Point = std::pair<size_t, size_t>;
 using Row = std::array<uint16_t, dim + 2>;
 using Map = std::array<Row, dim + 2>;
+
+#if defined(_MSC_VER)
+static void print(Map& map, size_t day, uint64_t count, const COORD& pos)
+{
+    std::cout << conmanip::setpos(pos.X, pos.Y) << conmanip::settextcolor(conmanip::console_text_colors::light_white)
+              << conmanip::setbgcolor(conmanip::console_bg_colors::black) << "Day: " << day << '\n'
+              << std::endl;
+    for (size_t i = 1; i < dim + 1; ++i) {
+        for (size_t j = 1; j < dim + 1; ++j) {
+            if (map[i][j] != 0) {
+                std::cout << conmanip::settextcolor(conmanip::console_text_colors::black) << map[i][j];
+            } else if (count < dim * dim) {
+                std::cout << conmanip::settextcolor(conmanip::console_text_colors::yellow) << map[i][j];
+            } else {
+                std::cout << conmanip::settextcolor(conmanip::console_text_colors::light_yellow) << map[i][j];
+            }
+        }
+        std::cout << '\n';
+    }
+
+    std::chrono::duration<int, std::milli> timespan(200);
+    std::this_thread::sleep_for(timespan);
+}
+#endif
 
 static uint64_t simulate(Map& map)
 {
@@ -88,28 +118,55 @@ int main(int argc, char* argv[])
         }
     }
 
+#if defined(_MSC_VER)
+    conmanip::console_out_context ctxout;
+    conmanip::console_out conout(ctxout);
+    auto conPos{conout.getpos()};
+#endif
+
     size_t days{0};
+    uint64_t total{0};
+    bool isEscape{false};
     {  // Part 1
-        uint64_t count100{0};
         for (size_t day = 0; day < 100; ++day) {
             const auto count{simulate(map)};
-			count100 += count;
+            total += count;
             if (days == 0 && count == dim * dim) {
                 // Early case for part 2
                 days = day + 1;
             }
+#if defined(_MSC_VER)
+            print(map, day, count, conPos);
+            if (GetAsyncKeyState(VK_ESCAPE)) {
+                isEscape = true;
+                break;
+            }
+#endif
         }
-        std::cout << count100 << std::endl;
     }
     {  // Part 2
-        if (days == 0) {
+        if (days == 0 && !isEscape) {
             days = 100;
             uint64_t count{0};
             do {
                 ++days;
                 count = simulate(map);
-            } while (count < dim * dim);
+#if defined(_MSC_VER)
+                print(map, days, count, conPos);
+                if (GetAsyncKeyState(VK_ESCAPE)) {
+                    isEscape = true;
+                }
+#endif
+            } while (count < dim * dim && !isEscape);
         }
+    }
+
+#if defined(_MSC_VER)
+    std::cout << std::endl;
+    ctxout.restore(conmanip::console_cleanup_options::restore_attibutes);
+#endif
+    if (!isEscape) {
+        std::cout << total << std::endl;
         std::cout << days << std::endl;
     }
 
