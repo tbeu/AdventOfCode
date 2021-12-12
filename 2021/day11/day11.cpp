@@ -8,6 +8,8 @@
 #include <fstream>
 #include <iostream>
 #include <queue>
+#include <random>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -35,7 +37,7 @@ using Row = std::array<uint16_t, dim + 2>;
 using Map = std::array<Row, dim + 2>;
 
 #if defined(_MSC_VER)
-static void print(Map& map, size_t day, uint64_t count, const COORD& pos)
+static bool print(Map& map, size_t day, uint64_t count, const COORD& pos)
 {
     std::cout << conmanip::setpos(pos.X, pos.Y) << conmanip::settextcolor(conmanip::console_text_colors::light_white)
               << conmanip::setbgcolor(conmanip::console_bg_colors::black) << "Day: " << day << '\n'
@@ -55,6 +57,8 @@ static void print(Map& map, size_t day, uint64_t count, const COORD& pos)
 
     std::chrono::duration<int, std::milli> timespan(200);
     std::this_thread::sleep_for(timespan);
+
+    return static_cast<bool>(GetAsyncKeyState(VK_ESCAPE));
 }
 #endif
 
@@ -101,7 +105,18 @@ static uint64_t simulate(Map& map)
 int main(int argc, char* argv[])
 {
     std::vector<std::string> lines{};
-    if (argc == 2) {
+    if (argc == 1) {
+        std::random_device rd;
+        std::mt19937 mt(rd());
+        std::uniform_real_distribution<float> dist(0.5, 8.5);
+        for (size_t i = 0; i < dim; ++i) {
+            std::ostringstream oss;
+            for (size_t j = 0; j < dim; ++j) {
+                oss << int(dist(mt) + 0.5);
+            }
+            lines.emplace_back(oss.str());
+        }
+    } else if (argc == 2) {
         if (!readFile(argv[1], lines)) {
             return EXIT_FAILURE;
         }
@@ -124,40 +139,39 @@ int main(int argc, char* argv[])
     auto conPos{conout.getpos()};
 #endif
 
-    size_t days{0};
+    size_t firstDay{0};
     uint64_t total{0};
     bool isEscape{false};
     {  // Part 1
         for (size_t day = 0; day < 100; ++day) {
             const auto count{simulate(map)};
             total += count;
-            if (days == 0 && count == dim * dim) {
+            if (firstDay == 0 && count == dim * dim) {
                 // Early case for part 2
-                days = day + 1;
+                firstDay = day + 1;
             }
 #if defined(_MSC_VER)
-            print(map, day, count, conPos);
-            if (GetAsyncKeyState(VK_ESCAPE)) {
-                isEscape = true;
+            isEscape = print(map, day, count, conPos);
+            if (isEscape) {
                 break;
             }
 #endif
         }
     }
     {  // Part 2
-        if (days == 0 && !isEscape) {
-            days = 100;
+        if (firstDay == 0 && !isEscape) {
             uint64_t count{0};
+            size_t day{100};
             do {
-                ++days;
+                ++day;
                 count = simulate(map);
-#if defined(_MSC_VER)
-                print(map, days, count, conPos);
-                if (GetAsyncKeyState(VK_ESCAPE)) {
-                    isEscape = true;
+                if (count == dim * dim) {
+                    firstDay = day;
                 }
+#if defined(_MSC_VER)
+                isEscape = print(map, day, count, conPos);
 #endif
-            } while (count < dim * dim && !isEscape);
+            } while (firstDay == 0 && !isEscape);
         }
     }
 
@@ -165,10 +179,8 @@ int main(int argc, char* argv[])
     std::cout << std::endl;
     ctxout.restore(conmanip::console_cleanup_options::restore_attibutes);
 #endif
-    if (!isEscape) {
-        std::cout << total << std::endl;
-        std::cout << days << std::endl;
-    }
+    std::cout << total << std::endl;
+    std::cout << firstDay << std::endl;
 
     return EXIT_SUCCESS;
 }
