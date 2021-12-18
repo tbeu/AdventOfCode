@@ -27,6 +27,7 @@ static bool readFile(std::string fileName, std::vector<std::string>& lines)
     return true;
 }
 
+constexpr bool verbose{false};
 struct Node;
 using NodeRef = std::shared_ptr<Node>;
 using NodePair = std::pair<NodeRef, NodeRef>;
@@ -46,6 +47,14 @@ struct Node
     Node(Position pos, const NodeRef& parent) : pos{pos}, parent{parent}
     {
     }
+    inline bool isNode() const
+    {
+        return !isLeaf();
+    }
+    inline bool isLeaf() const
+    {
+        return std::holds_alternative<int>(p);
+    }
     std::variant<NodePair, int> p{};
     std::weak_ptr<Node> parent{};
     Position pos{Position::UNDEFINED};
@@ -53,27 +62,30 @@ struct Node
 
 static std::ostream& print(std::ostream& stream, const NodeRef& node, int depth = 0)
 {
-    if (std::holds_alternative<int>(node->p)) {
-        auto& val = std::get<int>(node->p);
-        if (val >= 10) {
-            stream << "*" << val << "*";
-        } else {
-            stream << val;
-        }
-    } else if (std::holds_alternative<NodePair>(node->p)) {
-        auto& p = std::get<NodePair>(node->p);
+    if (node->isNode()) {
+        auto& [left, right] = std::get<NodePair>(node->p);
         if (depth > 3) {
+            // Mark explode candidates for debugging
             stream << "[~";
         } else {
             stream << "[";
         }
-        print(stream, p.first, depth + 1);
+        print(stream, left, depth + 1);
         stream << ",";
-        print(stream, p.second, depth + 1);
+        print(stream, right, depth + 1);
         if (depth > 3) {
+            // Mark explode candidates for debugging
             stream << "~]";
         } else {
             stream << "]";
+        }
+    } else {
+        auto& val = std::get<int>(node->p);
+        if (val >= 10) {
+            // Mark split candidates for debugging
+            stream << "*" << val << "*";
+        } else {
+            stream << val;
         }
     }
     return stream;
@@ -112,12 +124,12 @@ static void incrementLeft(std::weak_ptr<Node> iter, int incr)
         iter = iter.lock()->parent;
     }
     if (!iter.expired()) {
-        if (std::holds_alternative<NodePair>(iter.lock()->p)) {
+        if (iter.lock()->isNode()) {
             auto& q = std::get<NodePair>(iter.lock()->p);
             iter = q.first;
         }
         while (true) {
-            if (std::holds_alternative<int>(iter.lock()->p)) {
+            if (iter.lock()->isLeaf()) {
                 auto& val = std::get<int>(iter.lock()->p);
                 val += incr;
                 break;
@@ -138,12 +150,12 @@ static void incrementRight(std::weak_ptr<Node> iter, int incr)
         iter = iter.lock()->parent;
     }
     if (!iter.expired()) {
-        if (std::holds_alternative<NodePair>(iter.lock()->p)) {
+        if (iter.lock()->isNode()) {
             auto& q = std::get<NodePair>(iter.lock()->p);
             iter = q.second;
         }
         while (true) {
-            if (std::holds_alternative<int>(iter.lock()->p)) {
+            if (iter.lock()->isLeaf()) {
                 auto& val = std::get<int>(iter.lock()->p);
                 val += incr;
                 break;
@@ -157,28 +169,27 @@ static void incrementRight(std::weak_ptr<Node> iter, int incr)
 
 static void explode(NodeRef& node, bool& isDone, int depth = 0)
 {
-    if (std::holds_alternative<NodePair>(node->p)) {
-        auto& p = std::get<NodePair>(node->p);
-        if (depth > 3 && !isDone && std::holds_alternative<int>(p.first->p) &&
-            std::holds_alternative<int>(p.second->p)) {
+    if (node->isNode()) {
+        auto& [left, right] = std::get<NodePair>(node->p);
+        if (depth > 3 && !isDone && left->isLeaf() && right->isLeaf()) {
             isDone = true;
-            incrementLeft(node, std::get<int>(p.first->p));
-            incrementRight(node, std::get<int>(p.second->p));
+            incrementLeft(node, std::get<int>(left->p));
+            incrementRight(node, std::get<int>(right->p));
             node->p = 0;
             return;
         }
-        explode(p.first, isDone, depth + 1);
-        explode(p.second, isDone, depth + 1);
+        explode(left, isDone, depth + 1);
+        explode(right, isDone, depth + 1);
     }
 }
 
 static void split(NodeRef& node, bool& isDone)
 {
-    if (std::holds_alternative<NodePair>(node->p)) {
-        auto& p = std::get<NodePair>(node->p);
-        split(p.first, isDone);
-        split(p.second, isDone);
-    } else if (std::holds_alternative<int>(node->p)) {
+    if (node->isNode()) {
+        auto& [left, right] = std::get<NodePair>(node->p);
+        split(left, isDone);
+        split(right, isDone);
+    } else {
         auto val = std::get<int>(node->p);
         if (val >= 10 && !isDone) {
             auto left = std::make_shared<Node>(Position::LEFT, node);
@@ -200,7 +211,7 @@ static NodeRef reduce(NodeRef& node, bool verbose = false)
         do {
             isExploded = false;
             explode(node, isExploded);
-            if (verbose)
+            if (verbose && isExploded)
                 std::cout << "E: " << node << std::endl;
         } while (isExploded);
         bool isSplit{false};
@@ -222,19 +233,16 @@ static NodeRef add(NodeRef& left, NodeRef& right)
     left->pos = Position::LEFT;
     right->parent = sum;
     right->pos = Position::RIGHT;
-    bool verbose{false};
     return reduce(sum, verbose);
 }
 
 static int magnitude(const NodeRef& node)
 {
-    if (std::holds_alternative<NodePair>(node->p)) {
-        auto& p = std::get<NodePair>(node->p);
-        return 3 * magnitude(p.first) + 2 * magnitude(p.second);
-    } else if (std::holds_alternative<int>(node->p)) {
-        return std::get<int>(node->p);
+    if (node->isNode()) {
+        auto& [left, right] = std::get<NodePair>(node->p);
+        return 3 * magnitude(left) + 2 * magnitude(right);
     }
-    return 0;
+    return std::get<int>(node->p);
 }
 
 int main(int argc, char* argv[])
