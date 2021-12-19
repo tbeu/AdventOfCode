@@ -190,7 +190,7 @@ int main(int argc, char* argv[])
         q.pop();
         visited[i][i] = true;
         for (size_t j = 0; j < scanners.size(); ++j) {
-            if (visited[i][j]) {
+            if (visited[i][j] || visited[j][j]) {
                 continue;
             }
             if (verbose)
@@ -202,6 +202,7 @@ int main(int argc, char* argv[])
                 distances[j] = dist;
                 scanners[j] = transformed;  // Scanner j has now same orientation and origin as scanner i
                 beacons.insert(beacons.end(), transformed.begin(), transformed.end());
+                visited[j][j] = true;
                 q.push(j);
             }
             if (verbose)
