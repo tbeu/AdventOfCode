@@ -13,9 +13,9 @@
 
 #include <gsl/util>
 
-static bool readFile(std::string fileName, std::vector<std::string>& lines)
+static bool readFile(const std::string& fileName, std::vector<std::string>& lines)
 {
-    std::ifstream in{fileName.c_str()};
+    std::ifstream in{fileName};
     if (!in) {
         std::cerr << "Cannot open file " << fileName << std::endl;
         return false;
@@ -112,20 +112,26 @@ inline static int distance(const Point& v)
     return std::abs(v[0]) + std::abs(v[1]) + std::abs(v[2]);
 }
 
-static bool intersection(const Points& s1, const Points& s2)
+static bool testIntersection(const Points& s1, const Points& s2, const Point& d)
 {
-    std::set<Point> set1(s1.begin(), s1.end());
-    std::set<Point> set2(s2.begin(), s2.end());
-    Points res{};
-    std::set_intersection(set1.begin(), set1.end(), set2.begin(), set2.end(), std::back_inserter(res));
-    return res.size() >= minIntersectionSize;
+    size_t count{0};
+    for (const auto& v1 : s1) {
+        if (std::find_if(s2.cbegin(), s2.cend(), [&](const auto& v2) {
+                return v1[0] == v2[0] - d[0] && v1[1] == v2[1] - d[1] && v1[2] == v2[2] - d[2];
+            }) != s2.cend()) {
+            if (++count >= minIntersectionSize) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 static std::tuple<Points, Point> checkScanners(const Points& s1, const Points& s2)
 {
     const std::tuple<Points, Point> noMatch{};
     for (const auto& c : configs) {
-        auto s2Rotated{rotateScanner(s2, c)};
+        const auto s2Rotated{rotateScanner(s2, c)};
         for (size_t i = 0; i <= s1.size() - minIntersectionSize; ++i) {
             for (size_t j = 0; j <= s2Rotated.size() - minIntersectionSize; ++j) {
                 auto d{diff(s1[i], s2Rotated[j])};
@@ -133,9 +139,8 @@ static std::tuple<Points, Point> checkScanners(const Points& s1, const Points& s
                     // Optimization: Return early if the two points are too distant
                     return noMatch;
                 }
-                auto s2Transformed{shiftScanner(s2Rotated, d)};
-                if (intersection(s2Transformed, s1)) {
-                    return {s2Transformed, d};
+                if (testIntersection(s2Rotated, s1, d)) {
+                    return {shiftScanner(s2Rotated, d), d};
                 }
             }
         }
@@ -200,7 +205,7 @@ int main(int argc, char* argv[])
                 if (verbose)
                     std::cout << " -> " << dist;
                 distances[j] = dist;
-                scanners[j] = transformed;  // Scanner j has now same orientation and origin as scanner i
+                scanners[j] = transformed;  // Resolve frame j w.r.t. frame i and align orientation
                 beacons.insert(beacons.end(), transformed.begin(), transformed.end());
                 visited[j][j] = true;
                 q.push(j);
