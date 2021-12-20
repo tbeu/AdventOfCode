@@ -11,7 +11,7 @@
 
 #include <gsl/util>
 
-static bool readFile(std::string fileName, std::vector<std::string>& lines)
+static bool readFile(const std::string& fileName, std::vector<std::string>& lines)
 {
     std::ifstream in{fileName.c_str()};
     if (!in) {
@@ -26,7 +26,7 @@ static bool readFile(std::string fileName, std::vector<std::string>& lines)
     return true;
 }
 
-constexpr bool verbose{false};
+constexpr bool verbose{true};
 using Image = std::vector<std::string>;
 constexpr std::string::value_type dark{'.'};
 constexpr std::string::value_type light{'#'};
@@ -81,8 +81,6 @@ static Image enhance(Image& image, const std::string& map, std::string::value_ty
 
 static size_t enhance(Image& image, const std::string& map, size_t end)
 {
-    if (verbose)
-        std::cout << image << std::endl;
     for (size_t i = 0; i < end; ++i) {
         std::string::value_type c{dark};
         if (i % 2 == 1 && map[0] == light && map[map.size() - 1] == dark) {
@@ -109,13 +107,17 @@ int main(int argc, char* argv[])
     Image image{};
     image.reserve(lines.size() - 2);
     for (size_t i = 2; i < lines.size(); ++i) {
+        if (lines[i].empty()) {
+            continue;
+        }
         image.push_back(lines[i]);
     }
     if (image.empty()) {
         return EXIT_FAILURE;
     }
     const auto& map{lines[0]};
-
+    if (verbose)
+        std::cout << image << std::endl;
     auto count1{enhance(image, map, size_t{2})};
     auto count2{enhance(image, map, size_t{48})};
     std::cout << count1 << '\n' << count2 << std::endl;
