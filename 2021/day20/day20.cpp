@@ -3,11 +3,9 @@
 // https://adventofcode.com/2021/day/20
 
 #include <algorithm>
-#include <bitset>
 #include <fstream>
 #include <iostream>
 #include <numeric>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -32,8 +30,6 @@ constexpr bool verbose{false};
 using Image = std::vector<std::string>;
 constexpr std::string::value_type dark{'.'};
 constexpr std::string::value_type light{'#'};
-constexpr size_t bits{9};
-using Bitset = std::bitset<bits>;
 
 static std::ostream& operator<<(std::ostream& stream, const Image& image)
 {
@@ -64,12 +60,18 @@ static Image enhance(Image& image, const std::string& map, std::string::value_ty
     size_t dim{image[0].size()};
     for (size_t i = 1; i < dim - 1; ++i) {
         for (size_t j = 1; j < dim - 1; ++j) {
-            std::ostringstream oss{};
-            oss << image[i - 1].substr(j - 1, 3) << image[i].substr(j - 1, 3) << image[i + 1].substr(j - 1, 3);
-            std::string binIndex{oss.str()};
-            std::transform(binIndex.begin(), binIndex.end(), binIndex.begin(),
-                           [](const auto c) { return (c == dark) ? '0' : '1'; });
-            const auto index{Bitset(binIndex).to_ullong()};
+            size_t index{0};
+            // clang-format off
+            if (image[i - 1][j - 1] == light) index += 256;
+            if (image[i - 1][j    ] == light) index += 128;
+            if (image[i - 1][j + 1] == light) index += 64;
+            if (image[i    ][j - 1] == light) index += 32;
+            if (image[i    ][j    ] == light) index += 16;
+            if (image[i    ][j + 1] == light) index += 8;
+            if (image[i + 1][j - 1] == light) index += 4;
+            if (image[i + 1][j    ] == light) index += 2;
+            if (image[i + 1][j + 1] == light) index += 1;
+            // clang-format on
             copy[i][j] = map[index];
         }
     }
