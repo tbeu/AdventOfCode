@@ -1,1 +1,1 @@
-#include "day21/day21.cpp"
+#include "day22/day22.cpp"
