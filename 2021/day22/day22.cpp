@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <numeric>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -34,9 +35,19 @@ using Box = std::array<int32_t, 6>;
 using Rule = std::pair<bool, Box>;
 using Boxes = std::vector<Box>;
 
-static Boxes clip(Box& box, Box& newBox)
+static uint64_t volume(const Box& box)
 {
-    Boxes boxes{};
+    return uint64_t(box[1] - box[0]) * uint64_t(box[3] - box[2]) * uint64_t(box[5] - box[4]);
+}
+
+static uint64_t volume(const Boxes& boxes)
+{
+    return std::accumulate(boxes.cbegin(), boxes.cend(), uint64_t{0},
+                           [](auto& v, const auto& box) { return v + volume(box); });
+}
+
+static std::optional<Boxes> clip(Box& box, Box& newBox)
+{
     const auto v0{std::max(box[0], newBox[0])};
     const auto v1{std::min(box[1], newBox[1])};
     const auto v2{std::max(box[2], newBox[2])};
@@ -44,6 +55,7 @@ static Boxes clip(Box& box, Box& newBox)
     const auto v4{std::max(box[4], newBox[4])};
     const auto v5{std::min(box[5], newBox[5])};
     if (v0 < v1 && v2 < v3 && v4 < v5) {
+        Boxes boxes{};
         if (box[0] < v0 && v0 < box[1]) {
             boxes.emplace_back(Box{{box[0], v0, box[2], box[3], box[4], box[5]}});
             box[0] = v0;
@@ -64,38 +76,32 @@ static Boxes clip(Box& box, Box& newBox)
             boxes.emplace_back(Box{box[0], box[1], box[2], box[3], box[4], v4});
             box[4] = v4;
         }
-        if (box[4] <= v4 && v4 < box[5]) {
+        if (box[4] <= v4 && v4 < box[5] && v5 < box[5]) {
             boxes.emplace_back(Box{box[0], box[1], box[2], box[3], v5, box[5]});
             //box[5] = v5;
         }
-    }
-    if (verbose) {
-        for (auto& box : boxes) {
-            std::cout << box[0] << "," << box[1] << "," << box[2] << "," << box[3] << "," << box[4] << "," << box[5]
-                      << std::endl;
+        if (verbose) {
+            for (auto& box : boxes) {
+                std::cout << box[0] << "," << box[1] << "," << box[2] << "," << box[3] << "," << box[4] << "," << box[5]
+                          << std::endl;
+            }
         }
+        return boxes;
     }
-    return boxes;
+    return std::nullopt;
 }
 
 static void clip(Boxes& boxes, Box& newBox)
 {
     Boxes clipped{};
     for (auto box : boxes) {
-        if (auto temp = clip(box, newBox); !temp.empty()) {
-            clipped.insert(clipped.end(), temp.begin(), temp.end());
+        if (auto temp = clip(box, newBox); temp.has_value()) {
+            clipped.insert(clipped.end(), temp->begin(), temp->end());
         } else {
             clipped.emplace_back(box);
         }
     }
     boxes.swap(clipped);
-}
-
-static uint64_t volume(const Boxes& boxes)
-{
-    return std::accumulate(boxes.begin(), boxes.end(), uint64_t{0}, [](auto& v, const auto& box) {
-        return v + uint64_t(box[1] - box[0]) * uint64_t(box[3] - box[2]) * uint64_t(box[5] - box[4]);
-    });
 }
 
 int main(int argc, char* argv[])
