@@ -4,3 +4,6 @@
 [submodule "cppconlib"]
 	path = cppconlib
 	url = https://github.com/mariusbancila/cppconlib
+[submodule "MinGL"]
+	path = MinGL
+	url = https://github.com/amengol/MinGL
