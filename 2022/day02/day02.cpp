@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <numeric>
 #include <string>
 #include <vector>
 
@@ -35,20 +36,17 @@ int main(int argc, char* argv[])
     }
 
     {  // Part 1
-        uint64_t score{};
         const uint16_t scoreMap[3][3] = {{4, 8, 3}, {1, 5, 9}, {7, 2, 6}};
-        for (const auto& line : lines) {
-            score += scoreMap[line[0] - 'A'][line[2] - 'X'];
-        }
+        auto acc = [&](auto& s, const auto& line) { return s + scoreMap[line[0] - 'A'][line[2] - 'X']; };
+        auto score = std::accumulate(lines.cbegin(), lines.cend(), uint64_t{0}, acc);
         std::cout << score << std::endl;
     }
     {  // Part 2
-        uint64_t score{};
         const uint16_t scoreMap[3][3] = {{3, 4, 8}, {1, 5, 9}, {2, 6, 7}};
-        for (const auto& line : lines) {
-            score += scoreMap[line[0] - 'A'][line[2] - 'X'];
-        }
+        auto acc = [&](auto& s, const auto& line) { return s + scoreMap[line[0] - 'A'][line[2] - 'X']; };
+        auto score = std::accumulate(lines.cbegin(), lines.cend(), uint64_t{0}, acc);
         std::cout << score << std::endl;
     }
+
     return EXIT_SUCCESS;
 }
