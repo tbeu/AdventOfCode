@@ -36,81 +36,17 @@ int main(int argc, char* argv[])
 
     {  // Part 1
         uint64_t score{};
+        const uint16_t scoreMap[3][3] = {{4, 8, 3}, {1, 5, 9}, {7, 2, 6}};
         for (const auto& line : lines) {
-            if (line[0] == 'A') {
-                if (line[2] == 'X') {
-                    // Rock vs Rock
-                    score += 4;
-                } else if (line[2] == 'Y') {
-                    // Rock vs Paper
-                    score += 8;
-                } else if (line[2] == 'Z') {
-                    // Rock vs Scissors
-                    score += 3;
-                }
-            } else if (line[0] == 'B') {
-                if (line[2] == 'X') {
-                    // Paper vs Rock
-                    score += 1;
-                } else if (line[2] == 'Y') {
-                    // Paper vs Paper
-                    score += 5;
-                } else if (line[2] == 'Z') {
-                    // Paper vs Scissors
-                    score += 9;
-                }
-            } else if (line[0] == 'C') {
-                if (line[2] == 'X') {
-                    // Scissors vs Rock
-                    score += 7;
-                } else if (line[2] == 'Y') {
-                    // Scissors vs Paper
-                    score += 2;
-                } else if (line[2] == 'Z') {
-                    // Scissors vs Scissors
-                    score += 6;
-                }
-            }
+            score += scoreMap[line[0] - 'A'][line[2] - 'X'];
         }
         std::cout << score << std::endl;
     }
     {  // Part 2
         uint64_t score{};
+        const uint16_t scoreMap[3][3] = {{3, 4, 8}, {1, 5, 9}, {2, 6, 7}};
         for (const auto& line : lines) {
-            if (line[0] == 'A') {
-                if (line[2] == 'X') {
-                    // Rock vs Scissors
-                    score += 3;
-                } else if (line[2] == 'Y') {
-                    // Rock vs Rock
-                    score += 4;
-                } else if (line[2] == 'Z') {
-                    // Rock vs Paper
-                    score += 8;
-                }
-            } else if (line[0] == 'B') {
-                if (line[2] == 'X') {
-                    // Paper vs Rock
-                    score += 1;
-                } else if (line[2] == 'Y') {
-                    // Paper vs Paper
-                    score += 5;
-                } else if (line[2] == 'Z') {
-                    // Paper vs Scissors
-                    score += 9;
-                }
-            } else if (line[0] == 'C') {
-                if (line[2] == 'X') {
-                    // Scissors vs Paper
-                    score += 2;
-                } else if (line[2] == 'Y') {
-                    // Scissors vs Scissors
-                    score += 6;
-                } else if (line[2] == 'Z') {
-                    // Scissors vs Rock
-                    score += 7;
-                }
-            }
+            score += scoreMap[line[0] - 'A'][line[2] - 'X'];
         }
         std::cout << score << std::endl;
     }
