@@ -57,8 +57,8 @@ int main(int argc, char* argv[])
     RangePairs rangePairs{toRangePairs(lines)};
     {  // Part 1
         auto contain = [](const auto& rangePair) {
-            auto [x1, y1] = rangePair.first;
-            auto [x2, y2] = rangePair.second;
+            const auto [x1, y1] = rangePair.first;
+            const auto [x2, y2] = rangePair.second;
             return (x1 <= x2 && y2 <= y1) || (x2 <= x1 && y1 <= y2);
         };
         auto count = std::count_if(rangePairs.cbegin(), rangePairs.cend(), contain);
@@ -66,9 +66,9 @@ int main(int argc, char* argv[])
     }
     {  // Part 2
         auto overlap = [](const auto& rangePair) {
-            auto [x1, y1] = rangePair.first;
-            auto [x2, y2] = rangePair.second;
-            return (x1 <= x2 && x2 <= y1) || (x2 <= x1 && x1 <= y2);
+            const auto [x1, y1] = rangePair.first;
+            const auto [x2, y2] = rangePair.second;
+            return x1 <= y2 && x2 <= y1;
         };
         auto count = std::count_if(rangePairs.cbegin(), rangePairs.cend(), overlap);
         std::cout << count << std::endl;
