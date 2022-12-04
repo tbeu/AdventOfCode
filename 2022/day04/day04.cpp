@@ -14,6 +14,10 @@
 
 #include <gsl/util>
 
+using Range = std::pair<int32_t, int32_t>;
+using RangePair = std::pair<Range, Range>;
+using RangePairs = std::vector<RangePair>;
+
 static bool readFile(const std::string& fileName, std::vector<std::string>& lines)
 {
     std::ifstream in{fileName};
@@ -29,6 +33,18 @@ static bool readFile(const std::string& fileName, std::vector<std::string>& line
     return true;
 }
 
+RangePairs toRangePairs(const std::vector<std::string>& lines)
+{
+    RangePairs rangePairs{};
+    for (const auto& line : lines) {
+        RangePair rangePair{};
+        std::sscanf(line.c_str(), "%d-%d,%d-%d", &rangePair.first.first, &rangePair.first.second,
+                    &rangePair.second.first, &rangePair.second.second);
+        rangePairs.emplace_back(rangePair);
+    }
+    return rangePairs;
+}
+
 int main(int argc, char* argv[])
 {
     std::vector<std::string> lines{};
@@ -38,26 +54,23 @@ int main(int argc, char* argv[])
         }
     }
 
+    RangePairs rangePairs{toRangePairs(lines)};
     {  // Part 1
-        uint64_t count{};
-        for (const auto& line : lines) {
-            int32_t x1, y1, x2, y2;
-            std::sscanf(line.c_str(), "%d-%d,%d-%d", &x1, &y1, &x2, &y2);
-            if ((x1 <= x2 && y2 <= y1) || (x2 <= x1 && y1 <= y2)) {
-                count++;
-            }
-        }
+        auto contain = [](const auto& rangePair) {
+            auto [x1, y1] = rangePair.first;
+            auto [x2, y2] = rangePair.second;
+            return (x1 <= x2 && y2 <= y1) || (x2 <= x1 && y1 <= y2);
+        };
+        auto count = std::count_if(rangePairs.cbegin(), rangePairs.cend(), contain);
         std::cout << count << std::endl;
     }
     {  // Part 2
-        uint64_t count{};
-        for (const auto& line : lines) {
-            int32_t x1, y1, x2, y2;
-            std::sscanf(line.c_str(), "%d-%d,%d-%d", &x1, &y1, &x2, &y2);
-            if ((x1 <= x2 && x2 <= y1) || (x2 <= x1 && x1 <= y2)) {
-                count++;
-            }
-        }
+        auto overlap = [](const auto& rangePair) {
+            auto [x1, y1] = rangePair.first;
+            auto [x2, y2] = rangePair.second;
+            return (x1 <= x2 && x2 <= y1) || (x2 <= x1 && x1 <= y2);
+        };
+        auto count = std::count_if(rangePairs.cbegin(), rangePairs.cend(), overlap);
         std::cout << count << std::endl;
     }
 
