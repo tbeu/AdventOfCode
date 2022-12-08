@@ -76,7 +76,7 @@ struct Graph
 };
 
 using Path = std::vector<NodeRef<std::string> >;
-using VisitorFunc = std::function<bool(const std::weak_ptr<Node<std::string> >, const Path&)>;
+using VisitorFunc = std::function<bool(const NodeRef<std::string>, const Path&)>;
 
 static void printPath(const Path& path)
 {
@@ -103,17 +103,16 @@ static bool isVisited1(const NodeRef<std::string> node, const Path& path)
 
 static bool isVisited2(const NodeRef<std::string> node, const Path& path)
 {
-    if (std::isupper(node.lock()->value[0]) || !isVisited(node, path)) {
+    if (std::isupper(node.lock()->value[0])) {
         return false;
     }
-    if (node.lock()->value == "start" && std::find_if(path.cbegin(), path.cend(), [](const auto& pathNode) {
-                                             return pathNode.lock()->value == "start";
-                                         }) != path.cend()) {
+    if (!isVisited(node, path)) {
+        return false;
+    }
+    if (node.lock()->value == "start") {
         return true;
     }
-    if (node.lock()->value == "end" && std::find_if(path.cbegin(), path.cend(), [](const auto& pathNode) {
-                                           return pathNode.lock()->value == "end";
-                                       }) != path.cend()) {
+    if (node.lock()->value == "end") {
         return true;
     }
 
@@ -121,9 +120,8 @@ static bool isVisited2(const NodeRef<std::string> node, const Path& path)
     sortedPath.erase(std::remove_if(sortedPath.begin(), sortedPath.end(),
                                     [](const auto& pathNode) { return std::isupper(pathNode.lock()->value[0]); }),
                      sortedPath.end());
-    std::sort(sortedPath.begin(), sortedPath.end(), [](NodeRef<std::string> a, NodeRef<std::string> b) {
-        return a.lock()->value.compare(b.lock()->value) > 0;
-    });
+    std::sort(sortedPath.begin(), sortedPath.end(),
+              [](const auto& a, const auto& b) { return a.lock()->value.compare(b.lock()->value) > 0; });
 
     for (size_t i = 0; i < sortedPath.size() - 1; ++i) {
         if (sortedPath[i].lock()->value == sortedPath[i + 1].lock()->value) {

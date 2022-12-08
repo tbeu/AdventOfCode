@@ -34,9 +34,7 @@ using Lines = std::vector<std::string>;
 
 static void findBasin(const Lines& map, Points& points)
 {
-    const auto& point{points.back()};
-    size_t i{point.first};
-    size_t j{point.second};
+    const auto& [i, j] = points.back();
     const auto& val{map[i][j]};
     const std::array<Point, 4> adjs{{{i + 1, j}, {i - 1, j}, {i, j + 1}, {i, j - 1}}};
     for (const auto& adj : adjs) {
@@ -52,13 +50,13 @@ static void findBasin(const Lines& map, Points& points)
 
 int main(int argc, char* argv[])
 {
-    std::vector<std::string> map{};
+    Lines map{};
     if (argc == 2) {
         if (!readFile(argv[1], map)) {
             return EXIT_FAILURE;
         }
     }
-    if (map.size() < 1) {
+    if (map.empty()) {
         return EXIT_FAILURE;
     }
 
@@ -81,9 +79,8 @@ int main(int argc, char* argv[])
 
     {  //Part 1
         size_t risk{mins.size()};
-        for (const auto& point : mins) {
-            const auto& val{map[point.first][point.second]};
-            risk += val - zero;
+        for (const auto& [i, j] : mins) {
+            risk += map[i][j] - zero;
         }
         std::cout << risk << std::endl;
     }
