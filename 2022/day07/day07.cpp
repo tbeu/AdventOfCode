@@ -73,6 +73,8 @@ static DirectoryWeakRef parse(DirectoryWeakRef& dir, const std::string& line)
         return dir.lock()->getDir(name);
     }
     if (line.compare("$ ls") == 0) {
+        dir.lock()->dirs.clear();
+        dir.lock()->files.clear();
         return dir;
     }
     if (line.compare(0, 4, "dir ") == 0) {
@@ -85,7 +87,7 @@ static DirectoryWeakRef parse(DirectoryWeakRef& dir, const std::string& line)
         File file{};
         std::istringstream iss(line);
         iss >> file.size >> file.name;
-        dir.lock()->files.push_back(file);
+        dir.lock()->files.emplace_back(file);
     }
     return dir;
 }
