@@ -101,7 +101,7 @@ std::ostream& operator<<(std::ostream& stream, const NodeRef& node)
     return node->print(stream);
 }
 
-std::optional<bool> compare(NodeRef& first, NodeRef& second, int depth = 0)
+std::optional<bool> compare(const NodeRef& first, const NodeRef& second, int depth = 0)
 {
     auto _ = gsl::finally([&depth] {
         if (verbose && depth == 0) {
@@ -150,14 +150,19 @@ std::optional<bool> compare(NodeRef& first, NodeRef& second, int depth = 0)
         if (verbose) {
             std::cout << std::string(2 * depth + 2, ' ') << "- Mixed types" << std::endl;
         }
-        NodeRef tmp = first->v.has_value() ? first : second;
-        auto v = *tmp->v;
-        tmp->v = std::nullopt;
+        auto tmp = std::make_shared<Node>();
         auto next = std::make_shared<Node>();
-        next->v = v;
         tmp->nodes.push_back(next);
-        if (auto cmp = compare(first, second, depth + 1); cmp.has_value()) {
-            return *cmp;
+        if (first->v.has_value()) {
+            next->v = *first->v;
+            if (auto cmp = compare(tmp, second, depth + 1); cmp.has_value()) {
+                return *cmp;
+            }
+        } else {
+            next->v = *second->v;
+            if (auto cmp = compare(first, tmp, depth + 1); cmp.has_value()) {
+                return *cmp;
+            }
         }
     }
     return std::nullopt;
@@ -191,19 +196,18 @@ int main(int argc, char* argv[])
         std::cout << count << std::endl;
     }
     {  // Part 2
-        // Add the two additional nodes
-        for (const auto& line : std::array<std::string, 2>{"[[6]]", "[[2]]"}) {
-            list.insert(list.begin(), std::make_shared<Node>(line));
+        size_t first{};
+        size_t second{1};
+        const auto node2 = std::make_shared<Node>("[[2]]");
+        const auto node6 = std::make_shared<Node>("[[6]]");
+        for (const auto& node : list) {
+            if (auto cmp = compare(node, node2); cmp.has_value() && *cmp) {
+                ++first;
+            }
+            if (auto cmp = compare(node, node6); cmp.has_value() && *cmp) {
+                ++second;
+            }
         }
-        // Sort the index vector based on the node comparison
-        std::vector<size_t> sortIndexes(list.size());
-        std::iota(sortIndexes.begin(), sortIndexes.end(), 0);
-        std::sort(sortIndexes.begin(), sortIndexes.end(),
-                  [&list](auto a, auto b) { return *compare(list[a], list[b]); });
-        // Index of first node "[[2]]"
-        auto first = std::find(sortIndexes.cbegin(), sortIndexes.cend(), 0) - sortIndexes.begin();
-        // Index of second node "[[6]]"
-        auto second = std::find(sortIndexes.cbegin(), sortIndexes.cend(), 1) - sortIndexes.begin();
         std::cout << (first + 1) * (second + 1) << std::endl;
     }
 
