@@ -154,12 +154,19 @@ struct System
     uint16_t maxExpectedPressure() const
     {
         uint16_t p{0};
+        std::vector<uint16_t> rates{};
         for (size_t i = 0; i < open.size(); ++i) {
             if (open[i] > 0) {
                 p += (30 - open[i]) * g.nodes[i]->rate;
-            } else {
-                p += (29 - step) * g.nodes[i]->rate;
+            } else if (g.nodes[i]->rate > 0) {
+                rates.push_back(g.nodes[i]->rate);
             }
+        }
+        std::sort(rates.rbegin(), rates.rend());
+        auto _step{step};
+        for (auto rate : rates) {
+            p += (29 - _step) * rate;
+            _step += 2;
         }
         return p;
     }
