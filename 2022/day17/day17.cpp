@@ -38,6 +38,7 @@ constexpr std::array<char, 5> parts{p1, p2, p3, p4, p5};
 constexpr char left{'<'};
 constexpr char right{'>'};
 constexpr char down{'v'};
+constexpr uint64_t width{7};
 
 using Pos = std::array<uint64_t, 2>;
 using Map = std::vector<Pos>;
@@ -67,7 +68,7 @@ bool tryMove(char dir, char part, Pos& pos)
         case p1:
             switch (dir) {
                 case right:
-                    if (x < 3 && isFree({x + 4, y})) {
+                    if (x < width - 4 && isFree({x + 4, y})) {
                         x++;
                         return true;
                     }
@@ -90,7 +91,7 @@ bool tryMove(char dir, char part, Pos& pos)
         case p2:
             switch (dir) {
                 case right:
-                    if (x < 4 && isFree({x + 2, y}) && isFree({x + 3, y + 1}) && isFree({x + 2, y + 2})) {
+                    if (x < width - 3 && isFree({x + 2, y}) && isFree({x + 3, y + 1}) && isFree({x + 2, y + 2})) {
                         x++;
                         return true;
                     }
@@ -112,7 +113,7 @@ bool tryMove(char dir, char part, Pos& pos)
         case p3:
             switch (dir) {
                 case right:
-                    if (x < 4 && isFree({x + 3, y}) && isFree({x + 3, y + 1}) && isFree({x + 3, y + 2})) {
+                    if (x < width - 3 && isFree({x + 3, y}) && isFree({x + 3, y + 1}) && isFree({x + 3, y + 2})) {
                         x++;
                         return true;
                     }
@@ -134,7 +135,7 @@ bool tryMove(char dir, char part, Pos& pos)
         case p4:
             switch (dir) {
                 case right:
-                    if (x < 6 && isFree({x + 1, y}) && isFree({x + 1, y + 1}) && isFree({x + 1, y + 2}) &&
+                    if (x < width - 1 && isFree({x + 1, y}) && isFree({x + 1, y + 1}) && isFree({x + 1, y + 2}) &&
                         isFree({x + 1, y + 3})) {
                         x++;
                         return true;
@@ -158,7 +159,7 @@ bool tryMove(char dir, char part, Pos& pos)
         case p5:
             switch (dir) {
                 case right:
-                    if (x < 5 && isFree({x + 2, y}) && isFree({x + 2, y + 1})) {
+                    if (x < width - 2 && isFree({x + 2, y}) && isFree({x + 2, y + 1})) {
                         x++;
                         return true;
                     }
@@ -178,8 +179,9 @@ bool tryMove(char dir, char part, Pos& pos)
             }
             break;
         default:
-            return false;
+            break;
     }
+    return false;
 }
 
 uint64_t rest(char part, const Pos& pos, uint64_t maxY)
