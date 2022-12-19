@@ -93,36 +93,73 @@ struct Graph
 
     void removeEdgesToZeroRateNodes()
     {
-        for (auto& nodeI : nodes) {
-            if (nodeI->rate == 0) {
-                continue;
-            }
-            const auto& nameI = nodeI->name;
-            std::vector<NodeRef> newAdjsI{};
-            std::vector<uint16_t> newStepsI{};
-            for (size_t j = 0; j < nodeI->adjs.size(); ++j) {
-                auto& nodeJ = nodeI->adjs[j];
-                //const auto& nameJ = nodeJ.lock()->name;
-                if (nodeJ.lock()->rate == 0) {
-                    for (size_t k = 0; k < nodeJ.lock()->adjs.size(); ++k) {
-                        auto& nodeK = nodeJ.lock()->adjs[k];
-                        const auto& nameK = nodeK.lock()->name;
-                        if (nameI == nameK) {
-                            continue;
-                        }
-                        newAdjsI.emplace_back(nodeK);
-                        newStepsI.emplace_back(nodeI->steps[j] + nodeJ.lock()->steps[k]);
-                    }
-                } else {
-                    newAdjsI.emplace_back(nodeJ);
-                    newStepsI.emplace_back(nodeI->steps[j]);
+        setIndexes();
+        std::vector<std::vector<uint16_t> > removeds{nodes.size(), std::vector<uint16_t>()};
+        size_t removedCount;
+        do {
+            removedCount = 0;
+            for (auto& nodeI : nodes) {
+                if (nodeI->rate == 0) {
+                    continue;
                 }
+                //const auto& nameI = nodeI->name;
+                const auto indexI = nodeI->index;
+                auto& removed = removeds[indexI];
+                std::vector<NodeRef> newAdjsI{};
+                std::vector<uint16_t> newStepsI{};
+                for (size_t j = 0; j < nodeI->adjs.size(); ++j) {
+                    auto& nodeJ = nodeI->adjs[j];
+                    //const auto& nameJ = nodeJ.lock()->name;
+                    const auto& indexJ = nodeJ.lock()->index;
+                    if (nodeJ.lock()->rate == 0) {
+                        for (size_t k = 0; k < nodeJ.lock()->adjs.size(); ++k) {
+                            auto& nodeK = nodeJ.lock()->adjs[k];
+                            //const auto& nameK = nodeK.lock()->name;
+                            const auto indexK = nodeK.lock()->index;
+                            if (indexI == indexK) {
+                                continue;
+                            }
+                            if (std::find(removed.cbegin(), removed.cend(), indexK) != removed.cend()) {
+                                continue;
+                            }
+                            newAdjsI.emplace_back(nodeK);
+                            newStepsI.emplace_back(nodeI->steps[j] + nodeJ.lock()->steps[k]);
+                            removedCount++;
+                        }
+                        removed.push_back(indexJ);
+                    } else {
+                        newAdjsI.emplace_back(nodeJ);
+                        newStepsI.emplace_back(nodeI->steps[j]);
+                    }
+                }
+                nodeI->adjs = std::move(newAdjsI);
+                nodeI->steps = std::move(newStepsI);
             }
-            nodeI->adjs = std::move(newAdjsI);
-            nodeI->steps = std::move(newStepsI);
+        } while (removedCount > 0);
+    }
+
+    std::ostream& print(std::ostream& stream) const
+    {
+        for (auto& node : nodes) {
+            if (node->adjs.empty()) {
+                stream << node->name << ":" << std::endl;
+                continue;
+            } else {
+                stream << node->name << ": ";
+            }
+            for (size_t i = 0; i < node->adjs.size() - 1; ++i) {
+                stream << node->adjs[i].lock()->name << "(" << node->steps[i] << "), ";
+            }
+            stream << node->adjs.back().lock()->name << "(" << node->steps.back() << ")\n";
         }
+        return stream;
     }
 };
+
+static std::ostream& operator<<(std::ostream& stream, const Graph& g)
+{
+    return g.print(stream);
+}
 
 static Graph g{};
 
@@ -289,7 +326,13 @@ int main(int argc, char* argv[])
         }
         g.get(first).lock()->rate = rate;
     }
+    if (verbose) {
+        std::cout << g << std::endl;
+    }
     g.removeEdgesToZeroRateNodes();
+    if (verbose) {
+        std::cout << g << std::endl;
+    }
 
     {  // Part 1
         auto ps = dijkstra();
