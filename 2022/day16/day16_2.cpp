@@ -190,12 +190,20 @@ struct System
     uint16_t maxExpectedPressure() const
     {
         uint16_t p{0};
+        std::vector<uint16_t> rates{};
         auto _step{std::min(step[0], step[1])};
         for (size_t i = 0; i < open.size(); ++i) {
             if (open[i] > 0) {
                 p += (26 - open[i]) * g.nodes[i]->rate;
             } else if (g.nodes[i]->rate > 0) {
-                p += (25 - _step) * g.nodes[i]->rate;
+                rates.push_back(g.nodes[i]->rate);
+            }
+        }
+        std::sort(rates.rbegin(), rates.rend());
+        for (size_t i = 0; i < rates.size(); ++i) {
+            p += (25 - _step) * rates[i];
+            if (i % 2 == 0 && i > 0) {
+                _step += 2;
             }
         }
         return p;
@@ -242,7 +250,7 @@ struct SystemEq
     }
 };
 
-using Pressures = std::unordered_map<System, size_t, SystemHash, SystemEq>;
+using Pressures = std::unordered_map<System, uint16_t, SystemHash, SystemEq>;
 
 static Pressures bfs()
 {

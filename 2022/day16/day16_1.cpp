@@ -242,7 +242,7 @@ struct SystemEq
     }
 };
 
-using Pressures = std::unordered_map<System, size_t, SystemHash, SystemEq>;
+using Pressures = std::unordered_map<System, uint16_t, SystemHash, SystemEq>;
 
 static Pressures dijkstra()
 {
