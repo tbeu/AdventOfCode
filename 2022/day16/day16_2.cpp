@@ -1,0 +1,362 @@
+// Advent of Code 2022
+// Day 16: Proboscidea Volcanium
+// https://adventofcode.com/2022/day/16
+
+#include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <numeric>
+#include <queue>
+#include <sstream>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include <gsl/util>
+
+static bool readFile(std::string fileName, std::vector<std::string>& lines)
+{
+    std::ifstream in{fileName.c_str()};
+    if (!in) {
+        std::cerr << "Cannot open file " << fileName << std::endl;
+        return false;
+    }
+    auto closeStream = gsl::finally([&in] { in.close(); });
+    std::string str;
+    while (std::getline(in, str)) {
+        lines.push_back(str);
+    }
+    return true;
+}
+
+constexpr bool verbose{false};
+struct Node;
+using NodeRef = std::weak_ptr<Node>;
+
+struct Node
+{
+    Node(const std::string& name) : name{name}
+    {
+    }
+
+    uint16_t rate{};
+    std::string name{};
+    uint16_t index{};
+    std::vector<NodeRef> adjs{};
+    std::vector<uint16_t> steps{};
+};
+
+struct Graph
+{
+    std::vector<std::shared_ptr<Node> > nodes{};
+
+    void setIndexes()
+    {
+        for (auto& node : nodes) {
+            node->index = index(node->name);
+        }
+    }
+
+    uint16_t index(const std::string& i) const
+    {
+        auto node{std::find_if(nodes.cbegin(), nodes.cend(), [&](const auto node) { return node.get()->name == i; })};
+        return static_cast<uint16_t>(node - nodes.cbegin());
+    }
+
+    NodeRef get(const std::string& i) const
+    {
+        auto ret = NodeRef{};
+        auto node{std::find_if(nodes.cbegin(), nodes.cend(), [&](const auto node) { return node.get()->name == i; })};
+        if (node == nodes.cend()) {
+            return ret;
+        }
+        ret = *node;
+        return ret;
+    }
+
+    void addEdge(const std::string& i, const std::string& j)
+    {
+        auto nodeI = get(i);
+        if (nodeI.expired()) {
+            nodeI = nodes.emplace_back(std::make_shared<Node>(i));
+        }
+        auto nodeJ = get(j);
+        if (nodeJ.expired()) {
+            nodeJ = nodes.emplace_back(std::make_shared<Node>(j));
+        }
+        nodeI.lock()->adjs.emplace_back(nodeJ);
+        nodeI.lock()->steps.emplace_back(1);
+    }
+
+    void removeEdgesToZeroRateNodes()
+    {
+        setIndexes();
+        std::vector<std::vector<uint16_t> > removeds{nodes.size(), std::vector<uint16_t>()};
+        size_t removedCount;
+        do {
+            removedCount = 0;
+            for (auto& nodeI : nodes) {
+                if (nodeI->rate == 0 && nodeI->name != "AA") {
+                    continue;
+                }
+                //const auto& nameI = nodeI->name;
+                const auto indexI = nodeI->index;
+                auto& removed = removeds[indexI];
+                std::vector<NodeRef> newAdjsI{};
+                std::vector<uint16_t> newStepsI{};
+                for (size_t j = 0; j < nodeI->adjs.size(); ++j) {
+                    auto& nodeJ = nodeI->adjs[j];
+                    //const auto& nameJ = nodeJ.lock()->name;
+                    const auto& indexJ = nodeJ.lock()->index;
+                    if (nodeJ.lock()->rate == 0) {
+                        for (size_t k = 0; k < nodeJ.lock()->adjs.size(); ++k) {
+                            auto& nodeK = nodeJ.lock()->adjs[k];
+                            //const auto& nameK = nodeK.lock()->name;
+                            const auto indexK = nodeK.lock()->index;
+                            if (indexI == indexK) {
+                                continue;
+                            }
+                            if (std::find(removed.cbegin(), removed.cend(), indexK) != removed.cend()) {
+                                continue;
+                            }
+                            newAdjsI.emplace_back(nodeK);
+                            newStepsI.emplace_back(nodeI->steps[j] + nodeJ.lock()->steps[k]);
+                            removedCount++;
+                        }
+                        removed.push_back(indexJ);
+                    } else {
+                        newAdjsI.emplace_back(nodeJ);
+                        newStepsI.emplace_back(nodeI->steps[j]);
+                    }
+                }
+                nodeI->adjs = std::move(newAdjsI);
+                nodeI->steps = std::move(newStepsI);
+            }
+        } while (removedCount > 0);
+    }
+
+    std::ostream& print(std::ostream& stream) const
+    {
+        for (auto& node : nodes) {
+            if (node->adjs.empty()) {
+                stream << node->name << ":" << std::endl;
+                continue;
+            } else {
+                stream << node->name << ": ";
+            }
+            for (size_t i = 0; i < node->adjs.size() - 1; ++i) {
+                stream << node->adjs[i].lock()->name << "(" << node->steps[i] << "), ";
+            }
+            stream << node->adjs.back().lock()->name << "(" << node->steps.back() << ")\n";
+        }
+        return stream;
+    }
+};
+
+static std::ostream& operator<<(std::ostream& stream, const Graph& g)
+{
+    return g.print(stream);
+}
+
+static Graph g{};
+
+struct System
+{
+    System()
+    {
+        current[0] = g.index("AA");
+        current[1] = current[0];
+        open = std::vector<uint16_t>(g.nodes.size());
+    }
+
+    // Open state of each valve by index
+    std::vector<uint16_t> open{};
+    // Current valve index
+    std::array<uint16_t, 2> current{};
+    std::array<uint16_t, 2> step{};
+
+    uint16_t pressure() const
+    {
+        uint16_t p{0};
+        for (size_t i = 0; i < open.size(); ++i) {
+            if (open[i] > 0) {
+                p += (26 - open[i]) * g.nodes[i]->rate;
+            }
+        }
+        return p;
+    }
+
+    uint16_t maxExpectedPressure() const
+    {
+        uint16_t p{0};
+        auto _step{std::min(step[0], step[1])};
+        for (size_t i = 0; i < open.size(); ++i) {
+            if (open[i] > 0) {
+                p += (26 - open[i]) * g.nodes[i]->rate;
+            } else if (g.nodes[i]->rate > 0) {
+                p += (25 - _step) * g.nodes[i]->rate;
+            }
+        }
+        return p;
+    }
+
+    bool allOpen() const
+    {
+        for (size_t i = 0; i < open.size(); ++i) {
+            if (open[i] == 0 && g.nodes[i]->rate > 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+};
+
+struct SystemHash
+{
+    size_t operator()(const System& sys) const
+    {
+        size_t hash{sys.open.size()};
+        for (size_t i = 0; i < sys.open.size(); ++i) {
+            if (g.nodes[i]->rate > 0) {
+                hash ^= sys.open[i] + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+            }
+        }
+        if (sys.current[0] > sys.current[1]) {
+            hash ^= sys.current[0] + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+            hash ^= sys.current[1] + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+        } else {
+            hash ^= sys.current[1] + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+            hash ^= sys.current[0] + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+        }
+        return hash;
+    }
+};
+
+struct SystemEq
+{
+    bool operator()(System const& sys1, System const& sys2) const
+    {
+        return sys1.open == sys2.open && ((sys1.current[0] == sys2.current[0] && sys1.current[1] == sys2.current[1]) ||
+                                          (sys1.current[0] == sys2.current[1] && sys1.current[1] == sys2.current[0]));
+    }
+};
+
+using Pressures = std::unordered_map<System, size_t, SystemHash, SystemEq>;
+
+static Pressures bfs()
+{
+    g.setIndexes();
+    Pressures ps{};
+    uint16_t maxPressure{};
+    std::queue<System> q{};
+    {
+        System start = System();
+        ps[start] = 0;
+        q.push(std::move(start));
+    }
+
+    auto pushQ = [&](const System& next) {
+        const auto pressure = next.pressure();
+        const auto& it = ps.find(next);
+        if (it == ps.cend() || pressure > it->second) {
+            ps.insert_or_assign(next, pressure);
+            if (pressure > maxPressure) {
+                maxPressure = pressure;
+                if (verbose) {
+                    std::cout << maxPressure << std::endl;
+                }
+            }
+            q.push(std::move(next));
+        }
+    };
+    while (!q.empty()) {
+        auto sys = q.front();
+        q.pop();
+        if (sys.step[0] >= 26 || sys.step[1] >= 26) {
+            continue;
+        }
+        if (sys.allOpen()) {
+            continue;
+        }
+        if (sys.maxExpectedPressure() <= maxPressure) {
+            continue;
+        }
+        uint16_t first, second;
+        if (sys.step[0] <= sys.step[1]) {
+            first = 0;
+            second = 1;
+        } else {
+            first = 1;
+            second = 0;
+        }
+
+        const auto& name = g.nodes[sys.current[first]]->name;
+        if (sys.open[sys.current[first]] == 0 && g.nodes[sys.current[first]]->rate > 0) {
+            System next(sys);
+            next.step[first]++;
+            next.open[next.current[first]] = next.step[first];
+            pushQ(next);
+        }
+        for (size_t i = 0; i < g.nodes[sys.current[first]]->adjs.size(); ++i) {
+            System next(sys);
+            next.step[first] += g.nodes[next.current[first]]->steps[i];
+            next.current[first] = g.nodes[next.current[first]]->adjs[i].lock()->index;
+            if (next.current[first] == next.current[second]) {
+                continue;
+            }
+            pushQ(next);
+        }
+    }
+    return ps;
+}
+
+int main(int argc, char* argv[])
+{
+    std::vector<std::string> lines{};
+    if (argc == 2) {
+        if (!readFile(argv[1], lines)) {
+            return EXIT_FAILURE;
+        }
+    }
+
+    for (const auto& line : lines) {
+        std::istringstream iss{line.substr(6, line.size() - 6)};
+        std::string first, second;
+        iss >> first;
+        iss.ignore(15);
+        uint32_t rate;
+        iss >> rate;
+        iss.ignore(24);
+        while (iss >> second) {
+            if (second[second.size() - 1] == ',') {
+                second = second.substr(0, second.size() - 1);
+            }
+            g.addEdge(first, second);
+        }
+        g.get(first).lock()->rate = rate;
+    }
+    if (verbose) {
+        std::cout << g << std::endl;
+    }
+    g.removeEdgesToZeroRateNodes();
+    if (verbose) {
+        std::cout << g << std::endl;
+    }
+
+    {  // Part 2
+        auto ps = bfs();
+        auto max =
+            std::max_element(ps.cbegin(), ps.cend(), [](const auto& a, const auto& b) { return a.second < b.second; });
+        if (verbose) {
+            std::ostringstream oss{};
+            for (size_t i = 0; i < max->first.open.size(); ++i) {
+                oss << g.nodes[i]->name << ": " << max->first.open[i] << "\n";
+            }
+            std::cout << oss.str() << std::endl;
+        }
+        std::cout << max->second << std::endl;
+    }
+
+    return EXIT_SUCCESS;
+}
