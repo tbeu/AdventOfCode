@@ -55,10 +55,10 @@ struct World
 
     uint64_t hash() const
     {
-        uint64_t hash{4};
-        for (size_t i = 0; i < 4; ++i) {
-            hash ^= resources[i] + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-            hash ^= robots[i] + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+        uint64_t hash{};
+        for (uint16_t i = 0; i < 4; ++i) {
+            hash |= static_cast<uint64_t>(resources[i]) << (16 * i);
+            hash |= static_cast<uint64_t>(robots[i]) << (16 * i + 8);
         }
         return hash;
     }
@@ -111,6 +111,10 @@ static size_t bfs(const BluePrint& blueprint, uint16_t maxSteps)
             q.push(std::move(next));
         }
     };
+    uint16_t maxOre{};
+    for (uint16_t k = 0; k < 4; ++k) {
+        maxOre = std::max<int16_t>(maxOre, blueprint.plans[k][ore]);
+    }
     while (!q.empty()) {
         World world = q.front();
         q.pop();
@@ -138,11 +142,7 @@ static size_t bfs(const BluePrint& blueprint, uint16_t maxSteps)
                 } else if (i == obs || i == clay) {
                     wantBuild = next.robots[i] < blueprint.plans[i + 1][i];
                 } else {
-                    uint16_t maxOre{};
-                    for (uint16_t k = 0; k < 4; ++k) {
-                        maxOre = std::max<int16_t>(maxOre, blueprint.plans[k][ore]);
-                    }
-                    wantBuild = next.robots[ore] < 2 * maxOre;
+                    wantBuild = next.robots[ore] < maxOre;
                 }
             }
             if (canBuild && wantBuild) {
