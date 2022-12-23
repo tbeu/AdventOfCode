@@ -2,10 +2,21 @@
 // Day 23: Unstable Diffusion
 // https://adventofcode.com/2022/day/23
 
+#include "../../MinGL/MinGL.cpp"
+#include "../../MinGL/glad/glad.c"
+
+#if defined(_WIN64)
+#pragma comment(lib, "glfw3_64")
+#else
+#pragma comment(lib, "glfw3")
+#endif
+
 #include <algorithm>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <numeric>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -48,6 +59,11 @@ struct PosHash
 };
 
 using Map = std::unordered_map<Pos, Move, PosHash>;
+
+constexpr bool writePpmFiles{false};
+constexpr MinGLColor darkgreen{0.f, 130 / 255.f, 0.f, 1.f};
+constexpr MinGLColor bg{0.66f, 0.66f, 0.66f, 1.f};
+constexpr unsigned px{2};
 
 bool isFree(const Map& map, const Pos& pos)
 {
@@ -139,6 +155,47 @@ bool move(const Map& in, Map& out, size_t round)
     return std::any_of(out.cbegin(), out.cend(), [](const auto it) { return it.second != Move::None; });
 }
 
+std::ostream& operator<<(std::ostream& stream, const MinGLColor& color)
+{
+    stream << static_cast<int>(color.rgba[0] * 255) << ' ' << static_cast<int>(color.rgba[1] * 255) << ' '
+           << static_cast<int>(color.rgba[2] * 255) << '\n';
+    return stream;
+}
+
+void writePpm(const std::string& fileName, const Map& map, size_t m, size_t n)
+{
+    std::ofstream out{fileName};
+    if (!out) {
+        std::cerr << "Cannot open file " << fileName << std::endl;
+        return;
+    }
+    auto closeStream = gsl::finally([&out] { out.close(); });
+    out << "P3\n" << n << ' ' << m << '\n' << "255\n";
+    for (size_t i = 0; i < m; ++i) {
+        for (size_t j = 0; j < n; ++j) {
+            Pos pos{static_cast<int32_t>(i - 2 * m / 9), static_cast<int32_t>(j - 2 * n / 9)};
+            if (!isFree(map, pos)) {
+                out << darkgreen;
+            } else {
+                out << bg;
+            }
+        }
+    }
+}
+
+void draw(MinGL& minGL, const Map& map, size_t m, size_t n)
+{
+    for (size_t i = 0; i < m; ++i) {
+        for (size_t j = 0; j < n; ++j) {
+            Pos pos{static_cast<int32_t>(i - 2 * m / 9), static_cast<int32_t>(j - 2 * n / 9)};
+            if (!isFree(map, pos)) {
+                minGL.putPixel(static_cast<int>(px * j), static_cast<int>(px * (m - i - 1)), darkgreen, px, px);
+            }
+        }
+    }
+    minGL.flush(bg);
+}
+
 int main(int argc, char* argv[])
 {
     std::vector<std::string> lines{};
@@ -159,17 +216,49 @@ int main(int argc, char* argv[])
             }
         }
     }
+    const auto m{lines.size() * 3};
+    const auto n{lines[0].size() * 3};
+
+    MinGL minGL{};
+    if (!minGL.init(static_cast<unsigned>(px * n), static_cast<unsigned>(px * m), "Unstable Diffusion")) {
+        std::cerr << "Cannot initialize MinGL" << std::endl;
+        return EXIT_FAILURE;
+    }
+    auto _ = gsl::finally([&minGL] { minGL.shutdown(); });
+
+    minGL.flush(bg);
+    draw(minGL, map, m, n);
+    while (glfwGetKey(minGL.getWindow(), GLFW_KEY_SPACE) != GLFW_PRESS &&
+           glfwGetKey(minGL.getWindow(), GLFW_KEY_ESCAPE) != GLFW_PRESS) {
+        minGL.pollEvents();
+        minGL.processInput();
+    }
 
     size_t round{};
     {  // Part 1
         do {
             Map next{};
-            if (auto hasMoved = move(map, next, round++); hasMoved) {
+            auto hasMoved = move(map, next, round++);
+            if (hasMoved) {
                 map.swap(next);
-            } else {
+            }
+            {
+                std::ostringstream oss;
+                oss << "Round: " << round;
+                glfwSetWindowTitle(minGL.getWindow(), oss.str().c_str());
+            }
+            minGL.pollEvents();
+            minGL.processInput();
+            draw(minGL, map, m, n);
+            if (writePpmFiles) {
+                std::ostringstream oss;
+                oss << std::setfill('0') << std::setw(4) << round << ".ppm";
+                writePpm(oss.str(), map, m, n);
+            }
+            if (!hasMoved) {
                 break;
             }
-        } while (round < 10);
+        } while (round < 10 && !minGL.windowShouldClose());
         int32_t minI{INT32_MAX}, maxI{INT32_MIN}, minJ{INT32_MAX}, maxJ{INT32_MIN};
         for (const auto it : map) {
             auto [i, j] = it.first;
@@ -181,15 +270,35 @@ int main(int argc, char* argv[])
         std::cout << (maxI - minI + 1) * (maxJ - minJ + 1) - map.size() << std::endl;
     }
     {  // Part 2
-        while (true) {
+        while (!minGL.windowShouldClose()) {
             Map next{};
-            if (auto hasMoved = move(map, next, round++); hasMoved) {
+            auto hasMoved = move(map, next, round++);
+            if (hasMoved) {
                 map.swap(next);
-            } else {
+            }
+            {
+                std::ostringstream oss;
+                oss << "Round: " << round;
+                glfwSetWindowTitle(minGL.getWindow(), oss.str().c_str());
+            }
+            minGL.pollEvents();
+            minGL.processInput();
+            draw(minGL, map, m, n);
+            if (writePpmFiles) {
+                std::ostringstream oss;
+                oss << std::setfill('0') << std::setw(4) << round << ".ppm";
+                writePpm(oss.str(), map, m, n);
+            }
+            if (!hasMoved) {
                 break;
             }
         }
         std::cout << round << std::endl;
+    }
+
+    while (!minGL.windowShouldClose()) {
+        minGL.pollEvents();
+        minGL.processInput();
     }
 
     return EXIT_SUCCESS;
