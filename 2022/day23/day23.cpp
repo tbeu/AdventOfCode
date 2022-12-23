@@ -5,9 +5,9 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
-#include <map>
 #include <numeric>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <gsl/util>
@@ -38,7 +38,16 @@ enum class Move : int32_t
 
 constexpr char elve{'#'};
 using Pos = std::array<int32_t, 2>;
-using Map = std::map<Pos, Move>;
+
+struct PosHash
+{
+    size_t operator()(const Pos& pos) const
+    {
+        return pos[0] * 10000 + pos[1];
+    }
+};
+
+using Map = std::unordered_map<Pos, Move, PosHash>;
 
 bool isFree(const Map& map, const Pos& pos)
 {
