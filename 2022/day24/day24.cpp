@@ -41,12 +41,11 @@ using Maps = std::vector<Map>;
 
 struct World
 {
-    World(const Pos& pos, size_t step = 0, uint16_t wait = 0) : pos{pos}, step{step}, wait{wait}
+    World(const Pos& pos, size_t step = 0) : pos{pos}, step{step}
     {
     }
     Pos pos{};
     size_t step{};
-    uint16_t wait{};
 
     uint64_t hash() const
     {
@@ -54,7 +53,6 @@ struct World
         hash |= static_cast<uint64_t>(pos[0]);
         hash |= static_cast<uint64_t>(pos[1]) << 16;
         hash |= static_cast<uint64_t>(step) << 32;
-        hash |= static_cast<uint64_t>(wait) << 48;
         return hash;
     }
 };
@@ -93,13 +91,21 @@ void move(Map& map)
     map.swap(next);
 }
 
-size_t bfs(const Maps& maps, const Pos& start, const Pos& end, size_t startStep = 0)
+inline int32_t manhattanDistance(const Pos& a, const Pos& b)
+{
+    return std::abs(a[0] - b[0]) + std::abs(a[1] - b[1]);
+}
+
+size_t dijkstra(const Maps& maps, const Pos& start, const Pos& end, size_t startStep = 0)
 {
     std::map<uint64_t, size_t> visited{};
     size_t minSteps{UINT32_MAX};
     const auto period = maps.size();
     constexpr std::array<Pos, 4> adjs{{{0, 1}, {1, 0}, {0, -1}, {-1, 0}}};
-    std::queue<World> q{};
+    auto cmp = [&end](const auto& a, const auto& b) {
+        return a.step + manhattanDistance(a.pos, end) > b.step + manhattanDistance(b.pos, end);
+    };
+    std::priority_queue<World, std::vector<World>, decltype(cmp)> q(cmp);
     q.push(std::move(World(start, startStep)));
     auto pushQ = [&](const World& next) {
         const auto hash = next.hash();
@@ -112,7 +118,7 @@ size_t bfs(const Maps& maps, const Pos& start, const Pos& end, size_t startStep 
         }
     };
     while (!q.empty()) {
-        auto world = q.front();
+        auto world = q.top();
         q.pop();
         if (world.pos == end) {
             continue;
@@ -133,7 +139,6 @@ size_t bfs(const Maps& maps, const Pos& start, const Pos& end, size_t startStep 
         if (map[i][j] != Ground) {
             continue;
         }
-        world.wait++;
         pushQ(world);
     }
     return minSteps - startStep;
@@ -184,14 +189,15 @@ int main(int argc, char* argv[])
     Pos end{static_cast<int16_t>(dim[0]), static_cast<int16_t>(dim[1] - 2)};
     size_t count{};
     {  // Part 1
-        count = bfs(maps, start, end);
+        count = dijkstra(maps, start, end);
         std::cout << count << std::endl;
     }
     {  // Part 2
-        count += bfs(maps, end, start, count);
-        count += bfs(maps, start, end, count);
+        count += dijkstra(maps, end, start, count);
+        count += dijkstra(maps, start, end, count);
         std::cout << count << std::endl;
     }
 
     return EXIT_SUCCESS;
 }
+
