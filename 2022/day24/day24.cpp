@@ -35,34 +35,34 @@ constexpr int8_t W{2};
 constexpr int8_t S{4};
 constexpr int16_t N{8};
 constexpr int16_t Wall{16};
-using Pos = std::array<int16_t, 2>;
+using Pos = std::array<uint16_t, 2>;
 using Map = std::vector<std::vector<int16_t> >;
 using Maps = std::vector<Map>;
 
 struct World
 {
-    World(const Pos& pos, size_t step = 0) : pos{pos}, step{step}
+    World(const Pos& pos, uint16_t step = 0) : pos{pos}, step{step}
     {
     }
     Pos pos{};
-    size_t step{};
+    uint16_t step{};
 
-    uint64_t hash() const
+    uint32_t hash() const
     {
-        uint64_t hash{};
-        hash |= static_cast<uint64_t>(pos[0]);
-        hash |= static_cast<uint64_t>(pos[1]) << 16;
-        hash |= static_cast<uint64_t>(step) << 32;
+        uint32_t hash{};
+        hash |= static_cast<uint32_t>(pos[0]);
+        hash |= static_cast<uint32_t>(pos[1]) << 8;
+        hash |= static_cast<uint32_t>(step) << 16;
         return hash;
     }
 };
 
 void move(Map& map)
 {
-    Pos dim{static_cast<int16_t>(map.size()), static_cast<int16_t>(map[0].size())};
-    Map next{static_cast<size_t>(dim[0] - 2), std::vector<int16_t>(dim[1])};
+    const Pos dim{static_cast<uint16_t>(map.size()), static_cast<uint16_t>(map[0].size())};
+    Map next{static_cast<size_t>(dim[0] - 2), std::vector<int16_t>(dim[1], Ground)};
     {
-        std::vector<int16_t> border(dim[1], Wall);
+        const std::vector<int16_t> border(dim[1], Wall);
         next.insert(next.begin(), border);
         next.emplace_back(border);
     }
@@ -96,12 +96,12 @@ inline int32_t manhattanDistance(const Pos& a, const Pos& b)
     return std::abs(a[0] - b[0]) + std::abs(a[1] - b[1]);
 }
 
-size_t dijkstra(const Maps& maps, const Pos& start, const Pos& end, size_t startStep = 0)
+uint16_t dijkstra(const Maps& maps, const Pos& start, const Pos& end, uint16_t startStep = 0)
 {
-    std::map<uint64_t, size_t> visited{};
-    size_t minSteps{UINT32_MAX};
-    const auto period = maps.size();
-    constexpr std::array<Pos, 4> adjs{{{0, 1}, {1, 0}, {0, -1}, {-1, 0}}};
+    std::map<uint32_t, size_t> visited{};
+    uint16_t minSteps{UINT16_MAX};
+    const auto period = static_cast<uint16_t>(maps.size());
+    constexpr std::array<std::array<int32_t, 2>, 4> adjs{{{0, 1}, {1, 0}, {0, -1}, {-1, 0}}};
     auto cmp = [&end](const auto& a, const auto& b) {
         return a.step + manhattanDistance(a.pos, end) > b.step + manhattanDistance(b.pos, end);
     };
@@ -130,7 +130,7 @@ size_t dijkstra(const Maps& maps, const Pos& start, const Pos& end, size_t start
         const auto [i, j] = world.pos;
         const auto& map = maps[world.step % period];
         for (const auto& adj : adjs) {
-            Pos nextPos{i + adj[0], j + adj[1]};
+            Pos nextPos{static_cast<uint16_t>(i + adj[0]), static_cast<uint16_t>(j + adj[1])};
             if (map[nextPos[0]][nextPos[1]] != Ground) {
                 continue;
             }
@@ -153,8 +153,8 @@ int main(int argc, char* argv[])
         }
     }
 
-    const Pos dim{static_cast<int16_t>(lines.size()), static_cast<int16_t>(lines[0].size())};
-    Map map{static_cast<size_t>(dim[0]), std::vector<int16_t>(dim[1])};
+    const Pos dim{static_cast<uint16_t>(lines.size()), static_cast<uint16_t>(lines[0].size())};
+    Map map{static_cast<size_t>(dim[0]), std::vector<int16_t>(dim[1], Ground)};
 
     for (int16_t i = 0; i < dim[0]; ++i) {
         for (int16_t j = 0; j < dim[1]; ++j) {
@@ -172,7 +172,7 @@ int main(int argc, char* argv[])
         }
     }
     {
-        std::vector<int16_t> border(dim[1], Wall);
+        const std::vector<int16_t> border(dim[1], Wall);
         map.insert(map.begin(), border);
         map.emplace_back(border);
     }
@@ -180,14 +180,14 @@ int main(int argc, char* argv[])
     // Precalculate all possible map states based on the lcm of the grid dimensions
     Maps maps{};
     maps.push_back(map);
-    for (int16_t i = 1; i < std::lcm(dim[0] - 2, dim[1] - 2); ++i) {
+    for (int i = 1; i < std::lcm(dim[0] - 2, dim[1] - 2); ++i) {
         move(map);
         maps.push_back(map);
     }
 
-    Pos start{1, 1};
-    Pos end{static_cast<int16_t>(dim[0]), static_cast<int16_t>(dim[1] - 2)};
-    size_t count{};
+    constexpr Pos start{1, 1};
+    const Pos end{static_cast<uint16_t>(dim[0]), static_cast<uint16_t>(dim[1] - 2)};
+    uint16_t count{};
     {  // Part 1
         count = dijkstra(maps, start, end);
         std::cout << count << std::endl;
@@ -200,4 +200,3 @@ int main(int argc, char* argv[])
 
     return EXIT_SUCCESS;
 }
-
