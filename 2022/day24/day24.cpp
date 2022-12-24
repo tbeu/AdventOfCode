@@ -111,9 +111,6 @@ uint16_t dijkstra(const Maps& maps, const Pos& start, const Pos& end, uint16_t s
         const auto hash = next.hash();
         if (auto it = visited.find(hash); it == visited.end()) {
             visited[hash] = next.step;
-            if (next.pos[0] == end[0] && next.pos[1] == end[1] && next.step < minSteps) {
-                minSteps = next.step;
-            }
             q.push(std::move(next));
         }
     };
@@ -121,12 +118,10 @@ uint16_t dijkstra(const Maps& maps, const Pos& start, const Pos& end, uint16_t s
         auto world = q.top();
         q.pop();
         if (world.pos == end) {
-            continue;
+            minSteps = world.step;
+            break;
         }
         world.step++;
-        if (world.step >= minSteps) {
-            continue;
-        }
         const auto [i, j] = world.pos;
         const auto& map = maps[world.step % period];
         for (const auto& adj : adjs) {
