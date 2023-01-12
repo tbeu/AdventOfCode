@@ -9,6 +9,7 @@
 #include <map>
 #include <numeric>
 #include <queue>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -36,7 +37,7 @@ constexpr int8_t S{4};
 constexpr int16_t N{8};
 constexpr int16_t Wall{16};
 using Pos = std::array<uint16_t, 2>;
-using Map = std::vector<std::vector<int16_t> >;
+using Map = std::vector<std::vector<uint16_t> >;
 using Maps = std::vector<Map>;
 
 struct World
@@ -59,17 +60,17 @@ struct World
 
 void move(Map& map)
 {
-    const Pos dim{static_cast<uint16_t>(map.size()), static_cast<uint16_t>(map[0].size())};
-    Map next{static_cast<size_t>(dim[0] - 2), std::vector<int16_t>(dim[1], Ground)};
+    Map next{map.size() - 2, std::vector<uint16_t>(map[0].size(), Ground)};
     {
-        const std::vector<int16_t> border(dim[1], Wall);
+        const std::vector<uint16_t> border(map[0].size(), Wall);
         next.insert(next.begin(), border);
         next.emplace_back(border);
     }
-    for (int16_t i = 1; i < dim[0] - 1; ++i) {
+    const Pos dim{static_cast<uint16_t>(map.size()), static_cast<uint16_t>(map[0].size())};
+    for (uint16_t i = 1; i < dim[0] - 1; ++i) {
         next[i][0] = Wall;
         next[i][dim[1] - 1] = Wall;
-        for (int16_t j = 1; j < dim[1] - 1; ++j) {
+        for (uint16_t j = 1; j < dim[1] - 1; ++j) {
             if (map[i][j] == Wall) {
                 next[i][j] = Wall;
                 continue;
@@ -98,45 +99,37 @@ inline int32_t manhattanDistance(const Pos& a, const Pos& b)
 
 uint16_t dijkstra(const Maps& maps, const Pos& start, const Pos& end, uint16_t startStep = 0)
 {
-    std::map<uint32_t, size_t> visited{};
-    uint16_t minSteps{UINT16_MAX};
+    std::set<uint32_t> visited{};
     const auto period = static_cast<uint16_t>(maps.size());
-    constexpr std::array<std::array<int32_t, 2>, 4> adjs{{{0, 1}, {1, 0}, {0, -1}, {-1, 0}}};
+    constexpr std::array<std::array<int32_t, 2>, 5> adjs{{{0, 1}, {1, 0}, {0, -1}, {-1, 0}, {0, 0}}};
     auto cmp = [&end](const auto& a, const auto& b) {
         return a.step + manhattanDistance(a.pos, end) > b.step + manhattanDistance(b.pos, end);
     };
     std::priority_queue<World, std::vector<World>, decltype(cmp)> q(cmp);
-    q.push(std::move(World(start, startStep)));
-    auto pushQ = [&](const World& next) {
+    q.push(std::move(World{start, startStep}));
+    auto pushQ = [&](const World&& next) {
         const auto hash = next.hash();
-        if (auto it = visited.find(hash); it == visited.end()) {
-            visited[hash] = next.step;
+        if (visited.find(hash) == visited.end()) {
+            visited.insert(hash);
             q.push(std::move(next));
         }
     };
     while (!q.empty()) {
         auto world = q.top();
-        q.pop();
         if (world.pos == end) {
-            minSteps = world.step;
-            break;
+            return world.step - startStep;
         }
-        world.step++;
+        q.pop();
         const auto [i, j] = world.pos;
-        const auto& map = maps[world.step % period];
-        for (const auto& adj : adjs) {
-            Pos nextPos{static_cast<uint16_t>(i + adj[0]), static_cast<uint16_t>(j + adj[1])};
-            if (map[nextPos[0]][nextPos[1]] != Ground) {
-                continue;
+        const auto& map = maps[++world.step % period];
+        for (const auto [ai, aj] : adjs) {
+            Pos nextPos{static_cast<uint16_t>(i + ai), static_cast<uint16_t>(j + aj)};
+            if (map[nextPos[0]][nextPos[1]] == Ground) {
+                pushQ(World{nextPos, world.step});
             }
-            pushQ(World(nextPos, world.step));
         }
-        if (map[i][j] != Ground) {
-            continue;
-        }
-        pushQ(world);
     }
-    return minSteps - startStep;
+    return UINT16_MAX;
 }
 
 int main(int argc, char* argv[])
@@ -149,10 +142,10 @@ int main(int argc, char* argv[])
     }
 
     const Pos dim{static_cast<uint16_t>(lines.size()), static_cast<uint16_t>(lines[0].size())};
-    Map map{static_cast<size_t>(dim[0]), std::vector<int16_t>(dim[1], Ground)};
+    Map map{static_cast<size_t>(dim[0]), std::vector<uint16_t>(dim[1], Ground)};
 
-    for (int16_t i = 0; i < dim[0]; ++i) {
-        for (int16_t j = 0; j < dim[1]; ++j) {
+    for (uint16_t i = 0; i < dim[0]; ++i) {
+        for (uint16_t j = 0; j < dim[1]; ++j) {
             if (lines[i][j] == '>') {
                 map[i][j] = E;
             } else if (lines[i][j] == '<') {
@@ -167,7 +160,7 @@ int main(int argc, char* argv[])
         }
     }
     {
-        const std::vector<int16_t> border(dim[1], Wall);
+        const std::vector<uint16_t> border(dim[1], Wall);
         map.insert(map.begin(), border);
         map.emplace_back(border);
     }
