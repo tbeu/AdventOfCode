@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <cctype>
 #include <fstream>
-#include <functional>
 #include <iostream>
 #include <queue>
 #include <regex>
@@ -76,7 +75,7 @@ struct Graph
 };
 
 using Path = std::vector<NodeRef<std::string> >;
-using VisitorFunc = std::function<bool(const NodeRef<std::string>, const Path&)>;
+using VisitorFunc = bool(const NodeRef<std::string>, const Path&);
 
 static void printPath(const Path& path)
 {
