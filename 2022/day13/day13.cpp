@@ -39,25 +39,26 @@ struct Node
     Node()
     {
     }
-    Node(const std::string& s)
+    explicit Node(const std::string& s)
     {
-        size_t pos{0};
+        size_t start{1};
+        size_t end{s.size() - 1};
         // Skip first "[" and last "]" for root
-        parse(s.substr(1, s.size() - 2), pos);
+        parse(s, start, end);
     }
     NodeRefs nodes{};
     std::optional<int> v{std::nullopt};
     friend std::ostream& operator<<(std::ostream& stream, const NodeRef& node);
 
 private:
-    void parse(const std::string& s, size_t& pos)
+    void parse(const std::string& s, size_t& pos, size_t end)
     {
-        while (pos < s.size()) {
+        while (pos < end) {
             if (s[pos] == '[') {
                 ++pos;
                 auto next = std::make_shared<Node>();
                 nodes.push_back(next);
-                next->parse(s, pos);
+                next->parse(s, pos, end);
             } else if (s[pos] == ']') {
                 ++pos;
                 break;
