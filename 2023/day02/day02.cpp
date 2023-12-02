@@ -4,6 +4,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -33,12 +34,9 @@ int main(int argc, char* argv[])
     }
 
     {  // Part 1
-        uint32_t sum{};
-        auto printSum = gsl::finally([&sum] { std::cout << sum << std::endl; });
-        for (const auto& line : lines) {
+        auto acc = [](auto& s, const auto& line) {
             uint32_t id, x;
             std::string c;
-            bool isValid{true};
             std::istringstream iss{line};
             iss >> c;
             iss >> id;
@@ -48,19 +46,16 @@ int main(int argc, char* argv[])
                 if (('r' == c[0] && x > 12) ||  // red
                     ('g' == c[0] && x > 13) ||  // green
                     ('b' == c[0] && x > 14)) {  // blue
-                    isValid = false;
-                    break;
+                    return s;                   // impossible
                 }
             }
-            if (isValid) {
-                sum += id;
-            }
-        }
+            return s + id;
+        };
+        const auto sum = std::accumulate(lines.cbegin(), lines.cend(), uint32_t{0}, acc);
+        std::cout << sum << std::endl;
     }
     {  // Part 2
-        uint32_t sum{};
-        auto printSum = gsl::finally([&sum] { std::cout << sum << std::endl; });
-        for (const auto& line : lines) {
+        auto acc = [](auto& s, const auto& line) {
             uint32_t id, x, r{}, g{}, b{};
             std::string c;
             std::istringstream iss{line};
@@ -77,8 +72,10 @@ int main(int argc, char* argv[])
                     b = std::max(b, x);
                 }
             }
-            sum += r * g * b;
-        }
+            return s + r * g * b;
+        };
+        const auto sum = std::accumulate(lines.cbegin(), lines.cend(), uint32_t{0}, acc);
+        std::cout << sum << std::endl;
     }
 
     return EXIT_SUCCESS;
