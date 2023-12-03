@@ -96,6 +96,7 @@ int main(int argc, char* argv[])
         uint64_t sum{};
         for (const auto& [pos, _] : symbols) {
             if (const auto it = numbers.find(pos); it != numbers.end()) {
+                // Assumption: Each number is adjacent to not more than one symbol
                 sum += std::accumulate(it->second.cbegin(), it->second.cend(), uint64_t{0});
             }
         }
