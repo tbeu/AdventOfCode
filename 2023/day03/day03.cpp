@@ -2,7 +2,6 @@
 // Day 3: Gear Ratios
 // https://adventofcode.com/2023/day/3
 
-#include <algorithm>
 #include <array>
 #include <cctype>
 #include <fstream>
@@ -54,16 +53,6 @@ int main(int argc, char* argv[])
             }
         }
     }
-
-    const auto isAdjToSymbol = [&symbols](const std::vector<Pos>& adjs) {
-        for (const auto& adj : adjs) {
-            if (std::find_if(symbols.cbegin(), symbols.cend(), [&](const auto& s) { return s.first == adj; }) !=
-                symbols.cend()) {
-                return true;
-            }
-        }
-        return false;
-    };
 
     NumberMap numbers;
     for (uint32_t i = 1; i < dim[0] + 1; ++i) {
