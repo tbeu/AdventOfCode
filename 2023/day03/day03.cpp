@@ -46,14 +46,6 @@ int main(int argc, char* argv[])
     std::transform(map.begin(), map.end(), map.begin(), [](auto& row) { return dot + std::move(row) + dot; });
 
     SymbolMap symbols;
-    for (uint32_t i = 1; i < dim[0] + 1; ++i) {
-        for (uint32_t j = 1; j < dim[1] + 1; ++j) {
-            if (!std::isdigit(map[i][j]) && dot != map[i][j]) {
-                symbols[{i, j}] = map[i][j];
-            }
-        }
-    }
-
     NumberMap numbers;
     for (uint32_t i = 1; i < dim[0] + 1; ++i) {
         std::vector<char> number;
@@ -87,6 +79,9 @@ int main(int argc, char* argv[])
                     }
                     number.clear();
                     adjs.clear();
+                }
+                if (dot != map[i][j]) {
+                    symbols[{i, j}] = map[i][j];
                 }
             }
         }
