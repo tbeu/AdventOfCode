@@ -26,22 +26,6 @@ static bool readFile(const std::string& fileName, std::vector<std::string>& line
     return true;
 }
 
-struct Counter
-{
-    struct value_type
-    {
-        template <typename T>
-        value_type(const T&)
-        {
-        }
-    };
-    void push_back(const value_type&)
-    {
-        ++count;
-    }
-    size_t count{0};
-};
-
 int main(int argc, char* argv[])
 {
     if (argc != 2) {
@@ -55,7 +39,7 @@ int main(int argc, char* argv[])
     {  // Part 1
         uint32_t sum{};
         for (const auto& line : lines) {
-            std::set<std::string> s1, s2;
+            std::set<std::string> s;
             std::istringstream iss{line};
             size_t id;
             std::string x;
@@ -63,20 +47,21 @@ int main(int argc, char* argv[])
             iss >> id;
             iss.ignore(1);
             bool sep{false};
+            size_t c{};
             while (iss >> x) {
                 if ('|' == x[0]) {
                     sep = true;
                     continue;
                 }
                 if (sep) {
-                    s2.insert(x);
+                    if (s.find(x) != s.end()) {
+                        c++;
+                    }
                 } else {
-                    s1.insert(x);
+                    s.insert(x);
                 }
             }
-            Counter c;
-            std::set_intersection(s1.begin(), s1.end(), s2.begin(), s2.end(), std::back_inserter(c));
-            sum += 1 << (c.count - 1);
+            sum += 1 << (c - 1);
         }
         std::cout << sum << std::endl;
     }
@@ -84,7 +69,7 @@ int main(int argc, char* argv[])
         std::vector<uint32_t> cards(lines.size(), 1);
         uint32_t sum{};
         for (const auto& line : lines) {
-            std::set<std::string> s1, s2;
+            std::set<std::string> s;
             std::istringstream iss{line};
             size_t id;
             std::string x;
@@ -92,20 +77,21 @@ int main(int argc, char* argv[])
             iss >> id;
             iss.ignore(1);
             bool sep{false};
+            size_t c{};
             while (iss >> x) {
                 if ('|' == x[0]) {
                     sep = true;
                     continue;
                 }
                 if (sep) {
-                    s2.insert(x);
+                    if (s.find(x) != s.end()) {
+                        c++;
+                    }
                 } else {
-                    s1.insert(x);
+                    s.insert(x);
                 }
             }
-            Counter c;
-            std::set_intersection(s1.begin(), s1.end(), s2.begin(), s2.end(), std::back_inserter(c));
-            for (size_t i = 0; i < c.count; ++i) {
+            for (size_t i = 0; i < c; ++i) {
                 cards[id + i] += cards[id - 1];
             }
             sum += cards[id - 1];
