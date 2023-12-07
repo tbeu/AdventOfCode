@@ -8,7 +8,6 @@
 #include <cctype>
 #include <fstream>
 #include <iostream>
-#include <iterator>
 #include <string>
 #include <vector>
 
@@ -31,17 +30,17 @@ static bool readFile(const std::string& fileName, std::vector<std::string>& line
 
 constexpr size_t NCARDS{5};
 using Cards = std::array<char, 13>;
-using Count = std::array<uint16_t, NCARDS>;
+using Count = std::array<uint8_t, NCARDS>;
 
 const auto cmpTie = [](const std::string& a, const std::string& b, const Cards& cards) {
-    for (size_t i = 0; i < 5; ++i) {
-        const auto ad = cards.size() - std::distance(cards.begin(), std::find(cards.begin(), cards.end(), a[i]));
-        const auto bd = cards.size() - std::distance(cards.begin(), std::find(cards.begin(), cards.end(), b[i]));
-        if (ad < bd) {
-            return true;
-        }
-        if (bd < ad) {
-            return false;
+    for (size_t i = 0; i < NCARDS; ++i) {
+        for (const auto card : cards) {
+            if (a[i] == card && b[i] != card) {
+                return true;
+            }
+            if (a[i] != card && b[i] == card) {
+                return false;
+            }
         }
     }
     assert(false);
@@ -50,7 +49,7 @@ const auto cmpTie = [](const std::string& a, const std::string& b, const Cards& 
 
 struct
 {
-    constexpr static inline Cards cards = {'A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2'};
+    constexpr static inline Cards cards = {'2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'};
     bool operator()(const std::string& a, const std::string& b) const
     {
         const auto count = [](const std::string& s) {
@@ -60,7 +59,7 @@ struct
                     sc[NCARDS - c]++;
                 }
             }
-            assert(5 * sc[0] + 4 * sc[1] + 3 * sc[2] + 2 * sc[3] + sc[4] == 5);
+            assert(5 * sc[0] + 4 * sc[1] + 3 * sc[2] + 2 * sc[3] + sc[4] == NCARDS);
             return sc;
         };
 
@@ -79,28 +78,28 @@ struct
 
 struct
 {
-    constexpr static inline Cards cards = {'A', 'K', 'Q', 'T', '9', '8', '7', '6', '5', '4', '3', '2', 'J'};
     constexpr static inline char Joker = 'J';
+    constexpr static inline Cards cards = {Joker, '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'Q', 'K', 'A'};
     bool operator()(const std::string& a, const std::string& b) const
     {
-        auto applyJoker = [](const std::string& s, Count& sc) {
-            if (const auto csJ = std::count(s.begin(), s.begin() + 5, Joker); csJ > 0) {
-                bool applied{false};
+        const auto applyJoker = [](const std::string& s, Count& sc) {
+            if (const auto csJ = std::count(s.begin(), s.begin() + NCARDS, Joker); csJ > 0) {
+                if (NCARDS == csJ) {
+                    assert(std::all_of(sc.begin(), sc.end(), [](auto i) { return i == 0; }));
+                    sc[0] = 1;  // s = "JJJJJ"
+                    return;
+                }
                 for (size_t i = 0; i < NCARDS; ++i) {
                     if (sc[i] > 0) {
                         sc[i]--;
                         sc[i - csJ]++;
-                        applied = true;
                         break;
                     }
-                }
-                if (!applied) {
-                    sc = {1, 0, 0, 0, 0};  // s = "JJJJJ"
                 }
             }
         };
 
-        const auto count = [&](const std::string& s) {
+        const auto count = [&applyJoker](const std::string& s) {
             Count sc{0, 0, 0, 0, 0};
             for (const auto card : cards) {
                 if (Joker == card) {
@@ -111,7 +110,7 @@ struct
                 }
             }
             applyJoker(s, sc);
-            assert(5 * sc[0] + 4 * sc[1] + 3 * sc[2] + 2 * sc[3] + sc[4] == 5);
+            assert(5 * sc[0] + 4 * sc[1] + 3 * sc[2] + 2 * sc[3] + sc[4] == NCARDS);
             return sc;
         };
 
@@ -137,7 +136,7 @@ int main(int argc, char* argv[])
 
     auto toBid = [](const std::string& line) {
         uint64_t n{};
-        for (size_t i = 6; i < line.size(); ++i) {
+        for (size_t i = NCARDS + 1; i < line.size(); ++i) {
             assert(std::isdigit(line[i]));
             n = n * 10 + line[i] - '0';
         }
