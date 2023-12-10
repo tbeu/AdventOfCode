@@ -2,6 +2,10 @@
 // Day 10: Pipe Maze
 // https://adventofcode.com/2023/day/10
 
+#if defined(_MSC_VER)
+#include "../../cppconlib/include/conmanip.h"
+#endif
+
 #include <array>
 #include <assert.h>
 #include <fstream>
@@ -28,6 +32,7 @@ static bool readFile(const std::string& fileName, std::vector<std::string>& line
     return true;
 }
 
+constexpr auto verbose{false};
 using Pos = std::array<int16_t, 2>;
 using Pipes = std::set<std::pair<Pos, Pos> >;
 
@@ -81,14 +86,42 @@ size_t bfs(const Pipes& pipes, std::vector<std::string>& map)
         }
     }
 
+#if defined(_MSC_VER)
+    using namespace conmanip;
+    console_out_context ctxout;
+    console_out conout(ctxout);
+#endif
+
     size_t count{};
-    for (int16_t r = 0; r < dim[0] - 1; ++r) {
-        for (int16_t c = 0; c < dim[1] - 1; ++c) {
-            if (!isVisited({r, c}) && !isVisited({r, c + 1}) && !isVisited({r + 1, c}) && !isVisited({r + 1, c + 1})) {
+    for (int16_t r = 0; r < dim[0] - 2; ++r) {
+        for (int16_t c = 0; c < dim[1] - 2; ++c) {
+            const auto isInside =
+                !isVisited({r, c}) && !isVisited({r, c + 1}) && !isVisited({r + 1, c}) && !isVisited({r + 1, c + 1});
+            if (isInside) {
                 count++;
             }
+            if constexpr (verbose) {
+                if (isInside) {
+                    std::cout << settextcolor(console_text_colors::light_yellow) << map[r + 1][c + 1];
+                } else if ('S' == map[r + 1][c + 1]) {
+                    std::cout << settextcolor(console_text_colors::light_green) << map[r + 1][c + 1];
+                } else if (isPipe({r + 1, c + 1}, {r + 2, c + 1}) || isPipe({r + 1, c + 1}, {r + 1, c + 2}) ||
+                           isPipe({r, c + 1}, {r + 1, c + 1}) || isPipe({r + 1, c}, {r + 1, c + 1})) {
+                    std::cout << settextcolor(console_text_colors::light_red) << map[r + 1][c + 1];
+                } else {
+                    std::cout << settextcolor(console_text_colors::blue) << map[r + 1][c + 1];
+                }
+            }
+        }
+        if constexpr (verbose) {
+            std::cout << '\n';
         }
     }
+
+#if defined(_MSC_VER)
+    ctxout.restore(console_cleanup_options::restore_attibutes);
+#endif
+
     return count;
 }
 
