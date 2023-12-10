@@ -28,22 +28,29 @@ static bool readFile(const std::string& fileName, std::vector<std::string>& line
     return true;
 }
 
-using Pos = std::array<int32_t, 2>;
+using Pos = std::array<int16_t, 2>;
 using Pipes = std::set<std::pair<Pos, Pos> >;
 
 size_t bfs(const Pipes& pipes, std::vector<std::string>& map)
 {
-    const Pos dim{static_cast<int32_t>(map.size()), static_cast<int32_t>(map[0].size())};
-    std::set<Pos> visited{};
+    const Pos dim{static_cast<int16_t>(map.size()), static_cast<int16_t>(map[0].size())};
+    std::vector<std::vector<bool> > visited(map.size(), std::vector<bool>(map[0].size(), false));
     std::queue<Pos> q{};
     q.push({0, 0});
-    const auto isVisited = [&visited](const Pos& pos) { return visited.find(pos) != visited.end(); };
-    const auto isPipe = [&pipes](const Pos&& src, const Pos&& dst) {
-        return pipes.find(std::pair(src, dst)) != pipes.end() || pipes.find(std::pair(dst, src)) != pipes.end();
+    const auto isVisited = [&](const Pos& pos) {
+        assert(pos[0] >= 0);
+        assert(pos[0] < dim[0]);
+        assert(pos[1] >= 0);
+        assert(pos[1] < dim[1]);
+        return visited[pos[0]][pos[1]];
     };
-    const auto updateQ = [&](const Pos& next) {
+    const auto isPipe = [&pipes](const Pos&& src, const Pos&& dst) {
+        assert(src < dst);
+        return pipes.find(std::pair(src, dst)) != pipes.end();
+    };
+    const auto updateQ = [&](const Pos&& next) {
         if (!isVisited(next)) {
-            visited.insert(next);
+            visited[next[0]][next[1]] = true;
             q.push(next);
         }
     };
@@ -75,8 +82,8 @@ size_t bfs(const Pipes& pipes, std::vector<std::string>& map)
     }
 
     size_t count{};
-    for (int32_t r = 0; r < dim[0] - 1; ++r) {
-        for (int32_t c = 0; c < dim[1] - 1; ++c) {
+    for (int16_t r = 0; r < dim[0] - 1; ++r) {
+        for (int16_t c = 0; c < dim[1] - 1; ++c) {
             if (!isVisited({r, c}) && !isVisited({r, c + 1}) && !isVisited({r + 1, c}) && !isVisited({r + 1, c + 1})) {
                 count++;
             }
@@ -92,14 +99,14 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    const Pos dim{static_cast<int32_t>(map.size()), static_cast<int32_t>(map[0].size())};
+    const Pos dim{static_cast<int16_t>(map.size()), static_cast<int16_t>(map[0].size())};
     map.insert(map.begin(), std::string(dim[1], '.'));
-    map.push_back(std::string(dim[1], '.'));
+    map.emplace_back(std::string(dim[1], '.'));
     std::transform(map.begin(), map.end(), map.begin(), [](auto& row) { return '.' + std::move(row) + '.'; });
 
     const auto getStart = [&]() -> Pos {
-        for (int32_t r = 1; r < dim[0] - 1; ++r) {
-            for (int32_t c = 1; c < dim[1] - 1; ++c) {
+        for (int16_t r = 1; r < dim[0] - 1; ++r) {
+            for (int16_t c = 1; c < dim[1] - 1; ++c) {
                 if ('S' == map[r][c]) {
                     return {r, c};
                 }
@@ -115,8 +122,13 @@ int main(int argc, char* argv[])
         // Part 1
         constexpr auto adjs = std::array<Pos, 4>{{{0, 1}, {1, 0}, {0, -1}, {-1, 0}}};
         size_t max{};
+        std::vector<uint8_t> dirs;
         for (uint8_t i = 0; i < adjs.size(); ++i) {
             auto dir = i;
+            if (std::find(dirs.begin(), dirs.end(), dir) != dirs.end()) {
+                continue;
+            }
+            dirs.push_back(dir);
             Pos pos = {start[0] + adjs[i][0], start[1] + adjs[i][1]};
             auto& [r, c] = pos;
             size_t steps{1};
@@ -177,11 +189,21 @@ int main(int argc, char* argv[])
                     }
                 }
                 steps++;
-                loop.insert({src, pos});
+                // ensure first < second for sorted insertion
+                if (0 == dir || 1 == dir) {
+                    assert(src < pos);
+                    loop.insert({src, pos});
+                } else {
+                    assert(pos < src);
+                    loop.insert({pos, src});
+                }
             }
-            if (const auto s2 = steps / 2; s2 > max) {
-                max = s2;
-                pipes = std::move(loop);
+            if (const auto s2 = steps / 2; s2 > 0) {
+                dirs.push_back((dir + 2) % 4);
+                if (s2 > max) {
+                    max = s2;
+                    pipes = std::move(loop);
+                }
             }
         }
         std::cout << max << std::endl;
