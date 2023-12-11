@@ -165,7 +165,15 @@ int main(int argc, char* argv[])
             Pos pos = {start[0] + adjs[i][0], start[1] + adjs[i][1]};
             auto& [r, c] = pos;
             size_t steps{1};
-            Pipes loop{{start, pos}};
+            Pipes loop{};
+            // ensure first < second for sorted insertion
+            if (0 == dir || 1 == dir) {
+                assert(start < pos);
+                loop.insert({start, pos});
+            } else {
+                assert(pos < start);
+                loop.insert({pos, start});
+            }
             while (pos != start) {
                 auto src = pos;
                 if (0 == dir) {  // E
