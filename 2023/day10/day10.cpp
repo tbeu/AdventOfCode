@@ -88,8 +88,10 @@ size_t bfs(const Pipes& pipes, std::vector<std::string>& map)
 
 #if defined(_MSC_VER)
     using namespace conmanip;
+    using Color = console_text_colors;
     console_out_context ctxout;
     console_out conout(ctxout);
+    auto restore = gsl::finally([&ctxout] { ctxout.restore(console_cleanup_options::restore_attibutes); });
 #endif
 
     size_t count{};
@@ -101,15 +103,29 @@ size_t bfs(const Pipes& pipes, std::vector<std::string>& map)
                 count++;
             }
             if constexpr (verbose) {
+                auto p = map[r + 1][c + 1];
+                if ('|' == p) {
+                    p = char(179);
+                } else if ('7' == p) {
+                    p = char(191);
+                } else if ('L' == p) {
+                    p = char(192);
+                } else if ('-' == p) {
+                    p = char(196);
+                } else if ('J' == p) {
+                    p = char(217);
+                } else if ('F' == p) {
+                    p = char(218);
+                }
                 if (isInside) {
-                    std::cout << settextcolor(console_text_colors::light_yellow) << map[r + 1][c + 1];
-                } else if ('S' == map[r + 1][c + 1]) {
-                    std::cout << settextcolor(console_text_colors::light_green) << map[r + 1][c + 1];
+                    std::cout << settextcolor(Color::light_yellow) << '*';
+                } else if ('S' == p) {
+                    std::cout << settextcolor(Color::light_green) << p;
                 } else if (isPipe({r + 1, c + 1}, {r + 2, c + 1}) || isPipe({r + 1, c + 1}, {r + 1, c + 2}) ||
                            isPipe({r, c + 1}, {r + 1, c + 1}) || isPipe({r + 1, c}, {r + 1, c + 1})) {
-                    std::cout << settextcolor(console_text_colors::light_red) << map[r + 1][c + 1];
+                    std::cout << settextcolor(Color::light_red) << p;
                 } else {
-                    std::cout << settextcolor(console_text_colors::blue) << map[r + 1][c + 1];
+                    std::cout << settextcolor(Color::blue) << p;
                 }
             }
         }
@@ -117,11 +133,6 @@ size_t bfs(const Pipes& pipes, std::vector<std::string>& map)
             std::cout << '\n';
         }
     }
-
-#if defined(_MSC_VER)
-    ctxout.restore(console_cleanup_options::restore_attibutes);
-#endif
-
     return count;
 }
 
