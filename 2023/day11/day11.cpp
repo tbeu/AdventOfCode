@@ -4,7 +4,6 @@
 
 #include <fstream>
 #include <iostream>
-#include <numeric>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -26,11 +25,20 @@ static bool readFile(const std::string& fileName, std::vector<std::string>& line
     return true;
 }
 
-using Pos = std::array<uint16_t, 2>;
-
-int64_t manhattanDistance(const Pos& a, const Pos& b)
+template <uint64_t EXPANSION_FACTOR = 2>
+static inline uint64_t distances(const std::vector<uint16_t>& p)
 {
-    return std::abs(a[0] - b[0]) + std::abs(a[1] - b[1]);
+    uint64_t sum{};
+    for (size_t i = 0; i < p.size(); ++i) {
+        uint64_t d{};  // keep track of coordinate differences to be expanded
+        for (size_t j = i + 1; j < p.size(); ++j) {
+            if (p[j] > p[j - 1]) {
+                d += p[j] - p[j - 1] - 1;
+            }
+            sum += p[j] - p[i] + (EXPANSION_FACTOR - 1) * d;
+        }
+    }
+    return sum;
 }
 
 int main(int argc, char* argv[])
@@ -40,91 +48,25 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    std::vector<size_t> rs;
-    for (size_t r = 0; r < lines.size(); ++r) {
-        bool shouldExpand = true;
-        for (size_t c = 0; c < lines[r].size(); ++c) {
-            if (lines[r][c] == '#') {
-                shouldExpand = false;
-                break;
-            }
-        }
-        if (shouldExpand) {
-            rs.push_back(r);
-        }
-    }
-    std::vector<size_t> cs;
-    for (size_t c = 0; c < lines[0].size(); ++c) {
-        bool shouldExpand = true;
-        for (size_t r = 0; r < lines.size(); ++r) {
-            if (lines[r][c] == '#') {
-                shouldExpand = false;
-                break;
-            }
-        }
-        if (shouldExpand) {
-            cs.push_back(c);
-        }
-    }
-
-    std::vector<Pos> poss;
+    // sorted row/col coordinates for galaxies
+    std::vector<uint16_t> rg, cg;
     for (uint16_t r = 0; r < lines.size(); ++r) {
         for (uint16_t c = 0; c < lines[r].size(); ++c) {
             if (lines[r][c] == '#') {
-                poss.push_back({r, c});
+                rg.insert(std::lower_bound(rg.begin(), rg.end(), r), r);
+                cg.insert(std::lower_bound(cg.begin(), cg.end(), c), c);
             }
         }
     }
 
     {  // Part 1
-
-        /* // done the naive way first
-        for (size_t i = rs.size(); i > 0; --i) {
-            const auto r = rs[i - 1];
-            lines.insert(lines.begin() + r, std::string(lines[r].size(), '.'));
-        }
-        for (size_t i = cs.size(); i > 0; --i) {
-            const auto c = cs[i - 1];
-            std::transform(lines.begin(), lines.end(), lines.begin(),
-                           [&c](std::string& row) { return row.substr(0, c) + '.' + row.substr(c, row.size() - c); });
-        }
-		*/
-
-        uint64_t sum{};
-        for (size_t i = 0; i < poss.size(); ++i) {
-            for (size_t j = i + 1; j < poss.size(); ++j) {
-                sum += manhattanDistance(poss[i], poss[j]);
-                for (const auto r : rs) {
-                    if ((poss[i][0] < r && r < poss[j][0]) || (poss[j][0] < r && r < poss[i][0])) {
-                        sum += 2 - 1;
-                    }
-                }
-                for (const auto c : cs) {
-                    if ((poss[i][1] < c && c < poss[j][1]) || (poss[j][1] < c && c < poss[i][1])) {
-                        sum += 2 - 1;
-                    }
-                }
-            }
-        }
+        constexpr uint64_t expansion{2};
+        const auto sum = distances<expansion>(rg) + distances<expansion>(cg);
         std::cout << sum << std::endl;
     }
     {  // Part 2
-        uint64_t sum{};
-        for (size_t i = 0; i < poss.size(); ++i) {
-            for (size_t j = i + 1; j < poss.size(); ++j) {
-                sum += manhattanDistance(poss[i], poss[j]);
-                for (const auto r : rs) {
-                    if ((poss[i][0] < r && r < poss[j][0]) || (poss[j][0] < r && r < poss[i][0])) {
-                        sum += 1000000 - 1;
-                    }
-                }
-                for (const auto c : cs) {
-                    if ((poss[i][1] < c && c < poss[j][1]) || (poss[j][1] < c && c < poss[i][1])) {
-                        sum += 1000000 - 1;
-                    }
-                }
-            }
-        }
+        constexpr uint64_t expansion{1000000};
+        const auto sum = distances<expansion>(rg) + distances<expansion>(cg);
         std::cout << sum << std::endl;
     }
 
