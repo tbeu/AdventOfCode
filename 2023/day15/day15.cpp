@@ -4,9 +4,9 @@
 
 #include <fstream>
 #include <iostream>
-#include <map>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include <gsl/util>
@@ -31,18 +31,12 @@ struct Hash
     size_t operator()(const std::string_view& str) const
     {
         size_t hash{};
-        size_t v{};
         for (const auto c : str) {
-            if (',' == c) {
-                hash += v;
-                v = 0;
-                continue;
-            }
-            v += size_t(c);
-            v *= 17;
-            v %= 256;
+            hash += size_t(c);
+            hash *= 17;
+            hash %= 256;
         }
-        return hash + v;
+        return hash;
     }
 } hash;
 
@@ -53,56 +47,47 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    {  // Part 1
-        const auto sum = hash(lines[0]);
+    const auto& line = lines[0];
+
+    {  // Part 1: HASH
+        uint64_t sum{};
+        size_t start{};  // start position of string
+        for (size_t i = 0; i < line.size(); ++i) {
+            const auto c = line[i];
+            if (',' == c) {
+                sum += hash(std::string_view(line.data() + start, i - start));
+                start = i + 1;
+            }
+        }
+        sum += hash(std::string_view(line.data() + start, line.size() - start));
         std::cout << sum << std::endl;
     }
-    {  // Part 2
-        const auto walk = [](const std ::string& line) {
-            using Lens = std::pair<std::string_view, size_t>;
-            std::map<size_t, std::vector<Lens> > boxes;
+    {  // Part 2: HASHMAP
+        const auto walk = [](const std::string& line) {
+            std::unordered_map<std::string_view, size_t, Hash> boxes;
             size_t start{};  // start position of label
             for (size_t i = 0; i < line.size(); ++i) {
                 const auto c = line[i];
                 if (',' == c) {
                     start = i + 1;
-                } else if ('=' == c) {
-                    const auto label = std::string_view(line.data() + start, i - start);
-                    const auto v = hash(label);
-                    const auto cmp = [&label](const auto& lens) { return lens.first == label; };
-                    const auto f = line[++i] - '0';
-                    if (auto box = boxes.find(v); box != boxes.end()) {
-                        auto& lenses = box->second;
-                        if (auto lens = std::find_if(lenses.begin(), lenses.end(), cmp); lens != lenses.end()) {
-                            lens->second = f;
-                        } else {
-                            lenses.push_back({label, f});
-                        }
-                    } else {
-                        boxes.insert({v, std::vector<Lens>{{label, f}}});
-                    }
+                    continue;
+                }
+                const auto label = std::string_view(line.data() + start, i - start);
+                if ('=' == c) {
+                    boxes[label] = line[++i] - '0';
                 } else if ('-' == c) {
-                    const auto label = std::string_view(line.data() + start, i - start);
-                    const auto v = hash(label);
-                    const auto cmp = [&label](const auto& lens) { return lens.first == label; };
-                    if (auto box = boxes.find(v); box != boxes.end()) {
-                        auto& lenses = box->second;
-                        if (auto lens = std::find_if(lenses.begin(), lenses.end(), cmp); lens != lenses.end()) {
-                            lenses.erase(lens);
-                            if (lenses.empty()) {
-                                boxes.erase(box);
-                            }
-                        }
-                    }
+                    boxes.erase(label);
                 }
             }
             return boxes;
         };
-        const auto boxes = walk(lines[0]);
+        const auto boxes = walk(line);
         uint64_t sum{};
-        for (const auto& [v, lenses] : boxes) {
-            for (size_t i = 0; i < lenses.size(); ++i) {
-                sum += (v + 1) * ((i + 1) * lenses[i].second);
+        for (size_t i = 0; i < boxes.bucket_count(); ++i) {
+            auto s = boxes.bucket_size(i);
+            for (auto it = boxes.cbegin(i); it != boxes.cend(i); ++it) {
+                const auto& [label, f] = *it;
+                sum += (hash(label) + 1) * (s-- * f);
             }
         }
         std::cout << sum << std::endl;
