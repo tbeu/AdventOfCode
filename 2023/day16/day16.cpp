@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <queue>
 #include <unordered_set>
 #include <vector>
 
@@ -26,115 +27,110 @@ static bool readFile(const std::string& fileName, std::vector<std::string>& line
     return true;
 }
 
-using Pos = std::array<size_t, 2>;
+using Coord = uint8_t;
+using Pos = std::array<Coord, 2>;
 using Dir = uint8_t;
 using Beam = std::pair<Pos, Dir>;
-using Beams = std::vector<Beam>;
 
 struct BeamHash
 {
     size_t operator()(const Beam& beam) const
     {
-        return beam.first[0] * 1000 + beam.first[1];
+        return (beam.first[0] << 8) + beam.first[1];
     }
 };
 
-using BeamSet = std::unordered_set<Beam, BeamHash>;
-
-static void simulate(Beams& beams, const std::vector<std::string>& grid, const BeamSet& visited)
+static bool reflect(Beam& beam, const std::vector<std::string>& grid)
 {
-    BeamSet spawn;
-    for (auto it = beams.begin(); it != beams.end();) {
-        auto& [pos, dir] = *it;
-        auto& [r, c] = pos;
-        if (0 == dir) {  // E
-            if (grid[r].size() - 1 == c) {
-                it = beams.erase(it);
-                continue;
-            }
-            c++;
-            if ('\\' == grid[r][c]) {
-                dir = 1;
-            } else if ('/' == grid[r][c]) {
-                dir = 3;
-            } else if ('|' == grid[r][c]) {
-                dir = 1;
-                auto snd = Beam({{r, c}, 3});
-                if (visited.find(snd) == visited.end()) {
-                    spawn.insert(snd);
-                }
-            }
-        } else if (1 == dir) {  // S
-            if (grid.size() - 1 == r) {
-                it = beams.erase(it);
-                continue;
-            }
-            r++;
-            if ('\\' == grid[r][c]) {
-                dir = 0;
-            } else if ('/' == grid[r][c]) {
-                dir = 2;
-            } else if ('-' == grid[r][c]) {
-                dir = 0;
-                auto snd = Beam({{r, c}, 2});
-                if (visited.find(snd) == visited.end()) {
-                    spawn.insert(snd);
-                }
-            }
-        } else if (2 == dir) {  // W
-            if (0 == c) {
-                it = beams.erase(it);
-                continue;
-            }
-            c--;
-            if ('\\' == grid[r][c]) {
-                dir = 3;
-            } else if ('/' == grid[r][c]) {
-                dir = 1;
-            } else if ('|' == grid[r][c]) {
-                dir = 1;
-                auto snd = Beam({{r, c}, 3});
-                if (visited.find(snd) == visited.end()) {
-                    spawn.insert(snd);
-                }
-            }
-        } else if (3 == dir) {  // N
-            if (0 == r) {
-                it = beams.erase(it);
-                continue;
-            }
-            r--;
-            if ('\\' == grid[r][c]) {
-                dir = 2;
-            } else if ('/' == grid[r][c]) {
-                dir = 0;
-            } else if ('-' == grid[r][c]) {
-                dir = 0;
-                auto snd = Beam({{r, c}, 2});
-                if (visited.find(snd) == visited.end()) {
-                    spawn.insert(snd);
-                }
-            }
+    auto& [pos, dir] = beam;
+    const auto& [r, c] = pos;
+    if (0 == dir) {  // E
+        if ('\\' == grid[r][c]) {
+            dir = 1;
+        } else if ('/' == grid[r][c]) {
+            dir = 3;
+        } else if ('|' == grid[r][c]) {
+            dir = 1;
+            return true;
         }
-        if (visited.find(*it) != visited.end()) {
-            it = beams.erase(it);
-            continue;
+    } else if (1 == dir) {  // S
+        if ('\\' == grid[r][c]) {
+            dir = 0;
+        } else if ('/' == grid[r][c]) {
+            dir = 2;
+        } else if ('-' == grid[r][c]) {
+            dir = 0;
+            return true;
         }
-        ++it;
+    } else if (2 == dir) {  // W
+        if ('\\' == grid[r][c]) {
+            dir = 3;
+        } else if ('/' == grid[r][c]) {
+            dir = 1;
+        } else if ('|' == grid[r][c]) {
+            dir = 1;
+            return true;
+        }
+    } else if (3 == dir) {  // N
+        if ('\\' == grid[r][c]) {
+            dir = 2;
+        } else if ('/' == grid[r][c]) {
+            dir = 0;
+        } else if ('-' == grid[r][c]) {
+            dir = 0;
+            return true;
+        }
     }
-    beams.insert(beams.end(), spawn.begin(), spawn.end());
+    return false;
+}
+
+static bool move(Beam& beam, const std::vector<std::string>& grid)
+{
+    auto& [pos, dir] = beam;
+    auto& [r, c] = pos;
+    if (0 == dir) {  // E
+        if (grid[0].size() - 1 == c) {
+            return false;
+        }
+        c++;
+    } else if (1 == dir) {  // S
+        if (grid.size() - 1 == r) {
+            return false;
+        }
+        r++;
+    } else if (2 == dir) {  // W
+        if (0 == c) {
+            return false;
+        }
+        c--;
+    } else if (3 == dir) {  // N
+        if (0 == r) {
+            return false;
+        }
+        r--;
+    }
+    return true;
 }
 
 static size_t simulate(const Beam& start, const std::vector<std::string>& grid)
 {
-    Beams beams{start};
-    BeamSet visited{start};
-    size_t s;
-    do {
-        s = visited.size();
-        simulate(beams, grid, visited);
-        visited.insert(beams.begin(), beams.end());
-    } while (s < visited.size());
+    std::queue<Beam> beams;
+    beams.push(start);
+    std::unordered_set<Beam, BeamHash> visited;
+    while (!beams.empty()) {
+        auto beam = beams.front();
+        beams.pop();
+        while (visited.find(beam) == visited.end()) {
+            visited.insert(beam);
+            if (reflect(beam, grid)) {
+                const auto& [pos, dir] = beam;
+                beams.push({pos, (dir + 2) % 4});
+            }
+            if (!move(beam, grid)) {
+                break;
+            }
+        }
+    }
 
     // count the different positions
     std::unordered_set<size_t> energized;
@@ -151,20 +147,21 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
+    size_t max{};
+
     {  // Part 1
-        Dir startDir = '\\' == grid[0][0] ? 1 : 0;
-        const auto count = simulate({{0, 0}, startDir}, grid);
-        std::cout << count << std::endl;
+        max = simulate({{0, 0}, 0}, grid);
+        std::cout << max << std::endl;
     }
     {  // Part 2
-        size_t max{};
-        for (size_t r = 0; r < grid.size(); ++r) {
-            max = std::max(max, simulate({{r, 0}, 0}, grid));                   // E
-            max = std::max(max, simulate({{r, grid[r].size() - 1}, 2}, grid));  // W
+        for (Coord r = 1; r < grid.size(); ++r) {
+            max = std::max(max, simulate({{r, 0}, 0}, grid));                                       // E
+            max = std::max(max, simulate({{r, static_cast<Coord>(grid[0].size() - 1)}, 2}, grid));  // W
         }
-        for (size_t c = 0; c < grid[0].size(); ++c) {
-            max = std::max(max, simulate({{0, c}, 1}, grid));                // S
-            max = std::max(max, simulate({{grid.size() - 1, c}, 3}, grid));  // N
+        max = std::max(max, simulate({{0, static_cast<Coord>(grid[0].size() - 1)}, 2}, grid));  // W
+        for (Coord c = 0; c < grid[0].size(); ++c) {
+            max = std::max(max, simulate({{0, c}, 1}, grid));                                    // S
+            max = std::max(max, simulate({{static_cast<Coord>(grid.size() - 1), c}, 3}, grid));  // N
         }
         std::cout << max << std::endl;
     }
