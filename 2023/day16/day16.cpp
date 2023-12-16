@@ -5,7 +5,6 @@
 #include <array>
 #include <fstream>
 #include <iostream>
-#include <set>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -116,6 +115,10 @@ static void simulate(Beams& beams, const std::vector<std::string>& grid, const B
                     spawn.insert(snd);
                 }
             }
+        }
+        if (visited.find(*it) != visited.end()) {
+            it = beams.erase(it);
+            continue;
         }
         ++it;
     }
