@@ -167,39 +167,39 @@ static void incrementRight(std::weak_ptr<Node> iter, int incr)
     }
 }
 
-static void explode(NodeRef& node, bool& isDone, int depth = 0)
+static bool tryExplode(NodeRef& node, const int depth = 0)
 {
-    if (node->isNode()) {
-        auto& [left, right] = std::get<NodePair>(node->p);
-        if (depth > 3 && !isDone && left->isLeaf() && right->isLeaf()) {
-            isDone = true;
-            incrementLeft(node, std::get<int>(left->p));
-            incrementRight(node, std::get<int>(right->p));
-            node->p = 0;
-            return;
-        }
-        explode(left, isDone, depth + 1);
-        explode(right, isDone, depth + 1);
+    if (node->isLeaf())
+        return false;
+
+    auto& [left, right] = std::get<NodePair>(node->p);
+    if (depth > 3 && left->isLeaf() && right->isLeaf()) {
+        incrementLeft(node, std::get<int>(left->p));
+        incrementRight(node, std::get<int>(right->p));
+        node->p = 0;
+        return true;
     }
+
+    return tryExplode(left, depth + 1) || tryExplode(right, depth + 1);
 }
 
-static void split(NodeRef& node, bool& isDone)
+static bool trySplit(NodeRef& node)
 {
     if (node->isNode()) {
         auto& [left, right] = std::get<NodePair>(node->p);
-        split(left, isDone);
-        split(right, isDone);
-    } else {
-        auto val = std::get<int>(node->p);
-        if (val >= 10 && !isDone) {
-            auto left = std::make_shared<Node>(Position::LEFT, node);
-            auto right = std::make_shared<Node>(Position::RIGHT, node);
-            node->p = std::make_pair(left, right);
-            left->p = static_cast<int>(floor(val / 2.0));
-            right->p = static_cast<int>(ceil(val / 2.0));
-            isDone = true;
-        }
+        return trySplit(left) || trySplit(right);
     }
+
+    if (const auto val = std::get<int>(node->p); val >= 10) {
+        const auto left = std::make_shared<Node>(Position::LEFT, node);
+        const auto right = std::make_shared<Node>(Position::RIGHT, node);
+        node->p = std::make_pair(left, right);
+        left->p = static_cast<int>(floor(val / 2.0));
+        right->p = static_cast<int>(ceil(val / 2.0));
+        return true;
+    }
+
+    return false;
 }
 
 static NodeRef reduce(NodeRef& node, bool verbose = false)
@@ -207,18 +207,12 @@ static NodeRef reduce(NodeRef& node, bool verbose = false)
     if (verbose)
         std::cout << "R: " << node << std::endl;
     while (true) {
-        bool isExploded{false};
-        do {
-            isExploded = false;
-            explode(node, isExploded);
-            if (verbose && isExploded)
+        while (tryExplode(node)) {
+            if (verbose)
                 std::cout << "E: " << node << std::endl;
-        } while (isExploded);
-        bool isSplit{false};
-        split(node, isSplit);
-        if (!isSplit) {
-            break;
         }
+        if (!trySplit(node))
+            break;
         if (verbose)
             std::cout << "S: " << node << std::endl;
     }
