@@ -31,7 +31,6 @@ static bool readFile(const std::string& fileName, std::vector<std::string>& line
 }
 
 constexpr bool verbose{false};
-constexpr size_t goalSize{2};
 enum class Pod
 {
     NONE = 0,
@@ -41,21 +40,25 @@ enum class Pod
     D = 1000
 };
 
+template <size_t goalSize>
 using Room = std::variant<Pod, std::array<Pod, goalSize> >;
-using World = std::array<Room, 11>;
+template <size_t goalSize>
+using World = std::array<Room<goalSize>, 11>;
 
-inline static bool isGoal(const Room& room)
+template <size_t goalSize>
+inline static bool isGoal(const Room<goalSize>& room)
 {
     return std::holds_alternative<std::array<Pod, goalSize> >(room);
 }
 
+template <size_t goalSize>
 struct WorldHash
 {
-    size_t operator()(const World& world) const
+    size_t operator()(const World<goalSize>& world) const
     {
         size_t hash{0};
         for (uint8_t pos = 0; pos < world.size(); ++pos) {
-            auto& room = world[pos];
+            const auto& room = world[pos];
             if (!isGoal(room)) {
                 Pod pod = std::get<Pod>(room);
                 if (pod == Pod::A) {
@@ -73,7 +76,8 @@ struct WorldHash
     }
 };
 
-using Costs = std::unordered_map<World, uint32_t, WorldHash>;
+template <size_t goalSize>
+using Costs = std::unordered_map<World<goalSize>, uint32_t, WorldHash<goalSize> >;
 using Goals = std::map<Pod, uint8_t>;
 constexpr std::array<uint8_t, 4> goalRooms{2, 4, 6, 8};
 
@@ -99,7 +103,7 @@ static Pod toPod(std::string::value_type c)
     return Pod::NONE;
 }
 
-inline std::ostream& operator<<(std::ostream& stream, Pod& pod)
+inline std::ostream& operator<<(std::ostream& stream, Pod pod)
 {
     if (pod == Pod::A) {
         stream << "A";
@@ -115,11 +119,12 @@ inline std::ostream& operator<<(std::ostream& stream, Pod& pod)
     return stream;
 }
 
-static std::ostream& operator<<(std::ostream& stream, const World& world)
+template <size_t goalSize>
+static std::ostream& operator<<(std::ostream& stream, const World<goalSize>& world)
 {
     stream << "#############\n#";
     for (uint8_t pos = 0; pos < world.size(); ++pos) {
-        auto& room = world[pos];
+        const auto& room = world[pos];
         if (isGoal(room)) {
             stream << ".";
         } else {
@@ -129,21 +134,24 @@ static std::ostream& operator<<(std::ostream& stream, const World& world)
     }
     stream << "#\n###";
     for (auto& pos : goalRooms) {
-        auto& room = world[pos];
-        auto pods = std::get<std::array<Pod, goalSize> >(room);
+        const auto& room = world[pos];
+        const auto pods = std::get<std::array<Pod, goalSize> >(room);
         stream << pods[0] << "#";
     }
-    stream << "##\n  #";
-    for (auto& pos : goalRooms) {
-        auto& room = world[pos];
-        auto pods = std::get<std::array<Pod, goalSize> >(room);
-        stream << pods[1] << "#";
+    for (size_t i = 1; i < goalSize; ++i) {
+        stream << "##\n  #";
+        for (auto& pos : goalRooms) {
+            const auto& room = world[pos];
+            const auto pods = std::get<std::array<Pod, goalSize> >(room);
+            stream << pods[i] << "#";
+        }
     }
     stream << "\n  #########";
     return stream;
 }
 
-static bool isFree(const Room& room)
+template <size_t goalSize>
+static bool isFree(const Room<goalSize>& room)
 {
     if (isGoal(room)) {
         auto pods = std::get<std::array<Pod, goalSize> >(room);
@@ -152,7 +160,8 @@ static bool isFree(const Room& room)
     return std::get<Pod>(room) == Pod::NONE;
 }
 
-static bool checkMove(const World& world, uint8_t src, uint8_t dst)
+template <size_t goalSize>
+static bool checkMove(const World<goalSize>& world, uint8_t src, uint8_t dst)
 {
     auto left = std::min(src, dst);
     auto right = std::max(src, dst);
@@ -167,13 +176,15 @@ static bool checkMove(const World& world, uint8_t src, uint8_t dst)
     return true;
 }
 
-static bool checkGoal(const World& world, Pod pod, uint8_t dst)
+template <size_t goalSize>
+static bool checkGoal(const World<goalSize>& world, Pod pod, uint8_t dst)
 {
     const auto pods = std::get<std::array<Pod, goalSize> >(world[dst]);
     return std::all_of(pods.begin(), pods.end(), [&](const auto& p) { return p == Pod::NONE || p == pod; });
 }
 
-static std::vector<uint8_t> validMoves(const World& world, uint8_t pos, Goals& goals)
+template <size_t goalSize>
+static std::vector<uint8_t> validMoves(const World<goalSize>& world, uint8_t pos, Goals& goals)
 {
     std::vector<uint8_t> moves{};
     auto& room = world[pos];
@@ -219,9 +230,10 @@ static std::vector<uint8_t> validMoves(const World& world, uint8_t pos, Goals& g
     return moves;
 }
 
-static std::tuple<World, uint32_t> move(const World& world, uint8_t src, uint8_t dst)
+template <size_t goalSize>
+static std::tuple<World<goalSize>, uint32_t> move(const World<goalSize>& world, uint8_t src, uint8_t dst)
 {
-    World next{world};
+    auto next = world;
     Pod pod{Pod::NONE};
     uint32_t cost{0};
     {
@@ -263,13 +275,15 @@ static std::tuple<World, uint32_t> move(const World& world, uint8_t src, uint8_t
     return {next, cost};
 }
 
-static std::tuple<Costs, std::unordered_map<World, World, WorldHash> > dijkstra(const World& start, Goals& goals)
+template <size_t goalSize>
+static std::tuple<Costs<goalSize>, std::unordered_map<World<goalSize>, World<goalSize>, WorldHash<goalSize> > >
+dijkstra(const World<goalSize>& start, Goals& goals)
 {
-    Costs costs{};
+    Costs<goalSize> costs{};
     costs[start] = 0;
-    std::unordered_map<World, World, WorldHash> path{};
+    std::unordered_map<World<goalSize>, World<goalSize>, WorldHash<goalSize> > path{};
     auto cmp = [&](const auto& a, const auto& b) { return costs[a] > costs[b]; };
-    std::priority_queue<World, std::vector<World>, decltype(cmp)> q(cmp);
+    std::priority_queue<World<goalSize>, std::vector<World<goalSize> >, decltype(cmp)> q(cmp);
     q.push(start);
     while (!q.empty()) {
         auto world = q.top();
@@ -294,6 +308,24 @@ static std::tuple<Costs, std::unordered_map<World, World, WorldHash> > dijkstra(
     return {costs, path};
 }
 
+template <size_t goalSize>
+static void print(const World<goalSize>& world, const Costs<goalSize>& costs,
+                  const std::unordered_map<World<goalSize>, World<goalSize>, WorldHash<goalSize> >& path)
+{
+    std::vector<World<goalSize> > minPath{};
+    auto iter = world;
+    while (true) {
+        minPath.push_back(iter);
+        if (path.find(iter) == path.cend()) {
+            break;
+        }
+        iter = path.at(iter);
+    }
+    for (auto it = minPath.rbegin(); it != minPath.rend(); ++it) {
+        std::cout << *it << "   Cost: " << costs.at(*it) << "\n" << std::endl;
+    }
+}
+
 int main(int argc, char* argv[])
 {
     std::vector<std::string> lines{};
@@ -303,43 +335,64 @@ int main(int argc, char* argv[])
         }
     }
 
-    World world{};
-    for (auto& room : world) {
-        room = Pod::NONE;
-    }
-    world[2] = std::array<Pod, goalSize>{toPod(lines[2][3]), toPod(lines[3][3])};
-    world[4] = std::array<Pod, goalSize>{toPod(lines[2][5]), toPod(lines[3][5])};
-    world[6] = std::array<Pod, goalSize>{toPod(lines[2][7]), toPod(lines[3][7])};
-    world[8] = std::array<Pod, goalSize>{toPod(lines[2][9]), toPod(lines[3][9])};
-
-    Goals goals{};
-    goals[Pod::A] = 2;
-    goals[Pod::B] = 4;
-    goals[Pod::C] = 6;
-    goals[Pod::D] = 8;
-    auto [costs, path] = dijkstra(world, goals);
-
-    world[2] = std::array<Pod, goalSize>{Pod::A, Pod::A};
-    world[4] = std::array<Pod, goalSize>{Pod::B, Pod::B};
-    world[6] = std::array<Pod, goalSize>{Pod::C, Pod::C};
-    world[8] = std::array<Pod, goalSize>{Pod::D, Pod::D};
-
-    if (verbose) {
-        std::vector<World> minPath{};
-        World iter = world;
-        while (true) {
-            minPath.push_back(iter);
-            if (path.find(iter) == path.cend()) {
-                break;
-            }
-            iter = path[iter];
+    {  //Part1
+        constexpr const size_t goalSize{2};
+        World<goalSize> world{};
+        for (auto& room : world) {
+            room = Pod::NONE;
         }
-        for (auto it = minPath.rbegin(); it != minPath.rend(); ++it) {
-            std::cout << *it << "   Cost: " << costs[*it] << "\n" << std::endl;
-        }
-    }
+        world[2] = std::array<Pod, goalSize>{toPod(lines[2][3]), toPod(lines[3][3])};
+        world[4] = std::array<Pod, goalSize>{toPod(lines[2][5]), toPod(lines[3][5])};
+        world[6] = std::array<Pod, goalSize>{toPod(lines[2][7]), toPod(lines[3][7])};
+        world[8] = std::array<Pod, goalSize>{toPod(lines[2][9]), toPod(lines[3][9])};
 
-    std::cout << costs[world] << std::endl;
+        Goals goals{};
+        goals[Pod::A] = 2;
+        goals[Pod::B] = 4;
+        goals[Pod::C] = 6;
+        goals[Pod::D] = 8;
+        const auto& [costs, path] = dijkstra(world, goals);
+
+        world[2] = std::array<Pod, goalSize>{Pod::A, Pod::A};
+        world[4] = std::array<Pod, goalSize>{Pod::B, Pod::B};
+        world[6] = std::array<Pod, goalSize>{Pod::C, Pod::C};
+        world[8] = std::array<Pod, goalSize>{Pod::D, Pod::D};
+
+        if constexpr (verbose) {
+            print(world, costs, path);
+        }
+
+        std::cout << costs.at(world) << std::endl;
+    }
+    {  // Part 2
+        constexpr const size_t goalSize{4};
+        World<goalSize> world{};
+        for (auto& room : world) {
+            room = Pod::NONE;
+        }
+        world[2] = std::array<Pod, goalSize>{toPod(lines[2][3]), Pod::D, Pod::D, toPod(lines[3][3])};
+        world[4] = std::array<Pod, goalSize>{toPod(lines[2][5]), Pod::C, Pod::B, toPod(lines[3][5])};
+        world[6] = std::array<Pod, goalSize>{toPod(lines[2][7]), Pod::B, Pod::A, toPod(lines[3][7])};
+        world[8] = std::array<Pod, goalSize>{toPod(lines[2][9]), Pod::A, Pod::C, toPod(lines[3][9])};
+
+        Goals goals{};
+        goals[Pod::A] = 2;
+        goals[Pod::B] = 4;
+        goals[Pod::C] = 6;
+        goals[Pod::D] = 8;
+        const auto& [costs, path] = dijkstra(world, goals);
+
+        world[2] = std::array<Pod, goalSize>{Pod::A, Pod::A, Pod::A, Pod::A};
+        world[4] = std::array<Pod, goalSize>{Pod::B, Pod::B, Pod::B, Pod::B};
+        world[6] = std::array<Pod, goalSize>{Pod::C, Pod::C, Pod::C, Pod::C};
+        world[8] = std::array<Pod, goalSize>{Pod::D, Pod::D, Pod::D, Pod::D};
+
+        if constexpr (verbose) {
+            print(world, costs, path);
+        }
+
+        std::cout << costs.at(world) << std::endl;
+    }
 
     return EXIT_SUCCESS;
 }
