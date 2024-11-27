@@ -391,3 +391,19 @@ FodyWeavers.xsd
 # JetBrains Rider
 .idea/
 *.sln.iml
+
+# Win executables
+*.exe
+*.bat
+
+# Python virtual environment
+.venv
+
+# AoC Download Config
+/.aocdlconfig
+
+# AoC benchmark results
+/.aoctimer.json
+
+# AoC input files
+input
