@@ -75,42 +75,29 @@ int main(int argc, char* argv[])
 
     auto [rules, updates] = toRulesAndUpdates(lines);
 
-    const auto sorted = [&rules](const Update& update) {
-        for (size_t i = 0; i < update.size() - 1; ++i) {
-            const auto& rule = rules.equal_range(update[i]);
-            for (size_t j = i + 1; j < update.size(); ++j) {
-                for (auto it = rule.first; it != rule.second; ++it) {
-                    if (update[j] == it->second) {
-                        return false;
-                    }
-                }
+    const auto compare = [&rules](const uint32_t a, const uint32_t b) {
+        const auto& rule = rules.equal_range(b);
+        for (auto it = rule.first; it != rule.second; ++it) {
+            if (a == it->second) {
+                return true;
             }
         }
-        return true;
+        return false;
     };
 
     {  // Part 1
         uint64_t sum{};
         for (const auto& update : updates) {
-            if (sorted(update)) {
+            if (std::is_sorted(update.begin(), update.end(), compare)) {
                 sum += update[update.size() / 2];
             }
         }
         std::cout << sum << '\n';
     }
     {  // Part 2
-        const auto compare = [&rules](const uint32_t a, const uint32_t b) {
-            const auto& rule = rules.equal_range(b);
-            for (auto it = rule.first; it != rule.second; ++it) {
-                if (a == it->second) {
-                    return true;
-                }
-            }
-            return false;
-        };
         uint64_t sum{};
         for (auto& update : updates) {
-            if (sorted(update)) {
+            if (std::is_sorted(update.begin(), update.end(), compare)) {
                 continue;
             }
             std::nth_element(update.begin(), update.begin() + update.size() / 2, update.end(), compare);
