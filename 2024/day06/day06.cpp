@@ -37,6 +37,13 @@ enum class Dir : uint8_t
     W,
     N,
 };
+
+Dir& operator++(Dir& dir)
+{
+    dir = static_cast<Dir>((static_cast<uint8_t>(dir) + 1) % guards.size());
+    return dir;
+}
+
 using State = std::pair<Pos, Dir>;
 
 bool tryGetNext(State& state, const std::vector<std::string>& grid)
@@ -81,7 +88,7 @@ bool tryGetNext(State& state, const std::vector<std::string>& grid)
             }
             break;
     }
-    dir = static_cast<Dir>((static_cast<uint8_t>(dir) + 1) % guards.size());
+    ++dir;
     return true;
 }
 
@@ -127,15 +134,17 @@ int main(int argc, char* argv[])
         for (const auto& obs : pathPos) {
             constexpr const auto arbitraryObstruction = '*';
             grid[obs[0]][obs[1]] = arbitraryObstruction;
-            auto pathState = std::set<State>{startState};
+            using GuardState = std::array<bool, guards.size()>;
+            auto pathState = std::vector<std::vector<GuardState> >(
+                grid.size(), std::vector<GuardState>(grid[0].size(), GuardState{}));
             auto state = startState;
             while (tryGetNext(state, grid)) {
-                if (pathState.find(state) != pathState.end()) {
+                if (pathState[state.first[0]][state.first[1]][static_cast<uint8_t>(state.second)]) {
                     // loop detected
                     count++;
                     break;
                 }
-                pathState.emplace(state);
+                pathState[state.first[0]][state.first[1]][static_cast<uint8_t>(state.second)] = true;
             }
             // reset grid
             grid[obs[0]][obs[1]] = empty;
