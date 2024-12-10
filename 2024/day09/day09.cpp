@@ -2,6 +2,8 @@
 // Day 9: Disk Fragmenter
 // https://adventofcode.com/2024/day/9
 
+#include <algorithm>
+#include <array>
 #include <assert.h>
 #include <cstddef>
 #include <fstream>
@@ -86,6 +88,9 @@ public:
 
 size_t moveBlocks(std::vector<BlockWithLength>& disk)
 {
+    constexpr const size_t maxBlockLength = 9;
+    // keep track of the minimum index to search an empty block of length len
+    std::array<size_t, maxBlockLength> firsts{};
     size_t swapCount{};
     size_t last = disk.size() - 1;
     while (last > 0) {
@@ -93,7 +98,8 @@ size_t moveBlocks(std::vector<BlockWithLength>& disk)
             --last;
         }
         assert(!disk[last].empty());
-        size_t first = 0;
+        assert(disk[last].len > 0);
+        auto first = *std::min_element(firsts.begin() + disk[last].len - 1, firsts.end());
         while (true) {
             while (!disk[first].empty() && first < disk.size() - 1) {
                 ++first;
@@ -109,10 +115,11 @@ size_t moveBlocks(std::vector<BlockWithLength>& disk)
             }
             std::swap(disk[first], disk[last]);
             if (disk[first].len < disk[last].len) {
-                disk.insert(disk.begin() + first + 1,
-                            BlockWithLength(static_cast<uint16_t>(disk[last].len - disk[first].len)));
+                const auto len = static_cast<uint16_t>(disk[last].len - disk[first].len);
+                disk.insert(disk.begin() + first + 1, BlockWithLength(len));
                 disk[++last].len = disk[first].len;
             }
+            firsts[disk[first].len - 1] = first + 1;
             ++swapCount;
             break;
         }
@@ -136,6 +143,7 @@ int main(int argc, char* argv[])
         for (uint32_t i = 0; i < lines[0].size(); ++i) {
             const auto len = lines[0][i] - '0';
             if (i % 2 == 0) {
+                assert(len > 0);
                 for (size_t j = 0; j < len; ++j) {
                     disk.emplace_back(Block(i / 2));
                 }
@@ -162,8 +170,9 @@ int main(int argc, char* argv[])
         for (uint32_t i = 0; i < lines[0].size(); ++i) {
             const uint16_t len = lines[0][i] - '0';
             if (i % 2 == 0) {
+                assert(len > 0);
                 disk.emplace_back(BlockWithLength(i / 2, len));
-            } else {
+            } else if (len > 0) {
                 disk.emplace_back(BlockWithLength(len));
             }
         }
