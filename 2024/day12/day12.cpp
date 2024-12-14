@@ -93,20 +93,11 @@ struct Region : public PosSet
                 ++sum;
                 visitedE.insert(Pos{r, c});
                 auto rr = r;
-                while (rr > 0 && contains(Pos{rr - 1, c})) {
-                    if (c < grid[rr].size() - 1 && contains(Pos{rr - 1, c + 1})) {
-                        break;
-                    }
-                    --rr;
-                    visitedE.insert(Pos{rr, c});
-                }
-                rr = r;
                 while (rr < grid.size() - 1 && contains(Pos{rr + 1, c})) {
                     if (c < grid[rr].size() - 1 && contains(Pos{rr + 1, c + 1})) {
                         break;
                     }
-                    ++rr;
-                    visitedE.insert(Pos{rr, c});
+                    visitedE.insert(Pos{++rr, c});
                 }
             }
             if (!visitedS.contains(Pos{r, c}) &&
@@ -115,20 +106,11 @@ struct Region : public PosSet
                 ++sum;
                 visitedS.insert(Pos{r, c});
                 auto cc = c;
-                while (cc > 0 && contains(Pos{r, cc - 1})) {
-                    if (r < grid.size() - 1 && contains(Pos{r + 1, cc - 1})) {
-                        break;
-                    }
-                    --cc;
-                    visitedS.insert(Pos{r, cc});
-                }
-                cc = c;
                 while (cc < grid[r].size() - 1 && contains(Pos{r, cc + 1})) {
                     if (r < grid.size() - 1 && contains(Pos{r + 1, cc + 1})) {
                         break;
                     }
-                    ++cc;
-                    visitedS.insert(Pos{r, cc});
+                    visitedS.insert(Pos{r, ++cc});
                 }
             }
             if (!visitedW.contains(Pos{r, c}) && (c == 0 || (c > 0 && !contains(Pos{r, c - 1}))))  // W
@@ -136,20 +118,11 @@ struct Region : public PosSet
                 ++sum;
                 visitedW.insert(Pos{r, c});
                 auto rr = r;
-                while (rr > 0 && contains(Pos{rr - 1, c})) {
-                    if (c > 0 && contains(Pos{rr - 1, c - 1})) {
-                        break;
-                    }
-                    --rr;
-                    visitedW.insert(Pos{rr, c});
-                }
-                rr = r;
                 while (rr < grid.size() - 1 && contains(Pos{rr + 1, c})) {
                     if (c > 0 && contains(Pos{rr + 1, c - 1})) {
                         break;
                     }
-                    ++rr;
-                    visitedW.insert(Pos{rr, c});
+                    visitedW.insert(Pos{++rr, c});
                 }
             }
             if (!visitedN.contains(Pos{r, c}) && (r == 0 || (r > 0 && !contains(Pos{r - 1, c}))))  // N
@@ -157,20 +130,11 @@ struct Region : public PosSet
                 ++sum;
                 visitedN.insert(Pos{r, c});
                 auto cc = c;
-                while (cc > 0 && contains(Pos{r, cc - 1})) {
-                    if (r > 0 && contains(Pos{r - 1, cc - 1})) {
-                        break;
-                    }
-                    --cc;
-                    visitedN.insert(Pos{r, cc});
-                }
-                cc = c;
                 while (cc < grid[r].size() - 1 && contains(Pos{r, cc + 1})) {
                     if (r > 0 && contains(Pos{r - 1, cc + 1})) {
                         break;
                     }
-                    ++cc;
-                    visitedN.insert(Pos{r, cc});
+                    visitedN.insert(Pos{r, ++cc});
                 }
             }
         }
