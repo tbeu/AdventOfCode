@@ -40,9 +40,9 @@ enum class Operation : int32_t
 };
 
 using IntCode = std::vector<uint16_t>;
-using State = std::array<int64_t, 3>;
+using State = std::array<uint64_t, 3>;
 
-static void runCode(const IntCode& intCode, IntCode& output, State& state)
+static void runCode(const IntCode& intCode, IntCode& output, State state)
 {
     auto& [A, B, C] = state;
     size_t pos = 0;
@@ -52,17 +52,20 @@ static void runCode(const IntCode& intCode, IntCode& output, State& state)
         switch (op) {
             case Operation::adv:
                 if (operand < 4) {
-                    A /= (1ull << operand);
+                    A >>= operand;
                 } else if (operand < 7) {
-                    A /= (1ull << state[operand - 4]);
+                    A >>= state[operand - 4];
                 }
                 break;
             case Operation::bxl:
                 B ^= operand;
                 break;
             case Operation::bst:
-                assert(operand >= 4);
-                B = state[operand - 4] % 8;
+                if (operand < 4) {
+                    B = operand % 8;
+                } else if (operand < 7) {
+                    B = state[operand - 4] % 8;
+                }
                 break;
             case Operation::jnz:
                 assert(operand < 4);
@@ -74,21 +77,24 @@ static void runCode(const IntCode& intCode, IntCode& output, State& state)
                 B ^= C;
                 break;
             case Operation::out:
-                assert(operand >= 4);
-                output.push_back(state[operand - 4] % 8);
+                if (operand < 4) {
+                    output.push_back(operand % 8);
+                } else if (operand < 7) {
+                    output.push_back(state[operand - 4] % 8);
+                }
                 break;
             case Operation::bdv:
                 if (operand < 4) {
-                    B = A / (1ull << operand);
+                    B = A >> operand;
                 } else if (operand < 7) {
-                    B = A / (1ull << state[operand - 4]);
+                    B = A >> state[operand - 4];
                 }
                 break;
             case Operation::cdv:
                 if (operand < 4) {
-                    C = A / (1ull << operand);
+                    C = A >> operand;
                 } else if (operand < 7) {
-                    C = A / (1ull << state[operand - 4]);
+                    C = A >> state[operand - 4];
                 }
                 break;
             default:
@@ -96,6 +102,34 @@ static void runCode(const IntCode& intCode, IntCode& output, State& state)
                 break;
         }
     }
+}
+
+static State::value_type getA(const IntCode& intCode, State::value_type A = 0, size_t i = 0)
+{
+    assert(intCode.size() == 16);
+    assert(intCode[0] == 2);
+    assert(intCode[1] == 4);
+    assert(intCode[intCode.size() - 4] == 5);
+    assert(intCode[intCode.size() - 3] == 5);
+    assert(intCode[intCode.size() - 2] == 3);
+    assert(intCode[intCode.size() - 1] == 0);
+    if (i > intCode.size() - 1) {
+        return A / 8;
+    }
+    // skip the trailing "jnz 0" (to reset the instruction pointer), but only produce one single output value
+    const auto intCodeBody = IntCode(intCode.begin(), intCode.end() - 2);
+    for (uint16_t j = 0; j < 8; ++j) {
+        IntCode output;
+        runCode(intCodeBody, output, State{A, 0, 0});
+        assert(output.size() == 1);
+        if (output.back() == intCode[intCode.size() - 1 - i]) {
+            if (const auto a = getA(intCode, A * 8, i + 1); a > 0) {
+                return a;
+            }
+        }
+        ++A;
+    }
+    return 0;
 }
 
 int main(int argc, char* argv[])
@@ -142,28 +176,13 @@ int main(int argc, char* argv[])
         std::cout << '\n';
     }
     {  // Part 2
-        State::value_type A = 0;
-        for (size_t i = 0; i < intCode.size(); ++i) {
-            A *= 8;
-            bool found = false;
-            for (uint16_t j = 0; j < 8; ++j) {
-                State::value_type B = A % 8 ^ 2;
-                const State::value_type C = A / (1ull << B);
-                B ^= C;
-                B ^= 7;
-                if (B % 8 == intCode[intCode.size() - 1 - i]) {
-                    found = true;
-                    break;
-                }
-                ++A;
-            }
-            assert(found);
-        }
+        const auto A = getA(intCode);
+#ifdef _DEBUG
         IntCode output;
-        std::cout << A << '\n';
-        auto state = State{A, 0, 0};
-        runCode(intCode, output, state);
+        runCode(intCode, output, State{A, 0, 0});
         assert(output == intCode);
+#endif
+        std::cout << A << '\n';
     }
 
     return EXIT_SUCCESS;
