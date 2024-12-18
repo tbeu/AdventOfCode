@@ -5,7 +5,6 @@
 #include <array>
 #include <fstream>
 #include <iostream>
-#include <map>
 #include <optional>
 #include <queue>
 #include <sstream>
@@ -42,12 +41,18 @@ struct State
 
 static std::optional<uint16_t> bfs(const Grid& grid)
 {
-    std::map<Pos, uint16_t> visited{};
+    auto visited = grid;
     constexpr std::array<std::array<int8_t, 2>, 4> adjs{{{0, 1}, {1, 0}, {0, -1}, {-1, 0}}};
     std::queue<State> q;
     q.push(State{Pos{0, 0}, 0});
+    auto minSteps = std::optional<uint16_t>();
+    const auto end = Pos{static_cast<Coord>(grid.size() - 1), static_cast<Coord>(grid.size() - 1)};
     while (!q.empty()) {
         const auto state = q.front();
+        if (state.pos == end) {
+            minSteps = state.step;
+            break;
+        }
         q.pop();
         const auto step = static_cast<uint16_t>(state.step + 1);
         const auto [r, c] = state.pos;
@@ -66,21 +71,14 @@ static std::optional<uint16_t> bfs(const Grid& grid)
             }
             const auto& [rr, cc] = adjs[dir];
             const auto pos = Pos{static_cast<Coord>(r + rr), static_cast<Coord>(c + cc)};
-            if (grid[pos[0]][pos[1]]) {
+            if (visited[pos[0]][pos[1]]) {
                 continue;
             }
-            if (visited.find(pos) != visited.end()) {
-                continue;
-            }
-            visited[pos] = step;
+            visited[pos[0]][pos[1]] = true;
             q.push(State{pos, step});
         }
     }
-    const auto end = Pos{static_cast<Coord>(grid.size() - 1), static_cast<Coord>(grid.size() - 1)};
-    if (auto it = visited.find(end); it != visited.end()) {
-        return it->second;
-    }
-    return std::optional<uint16_t>();
+    return minSteps;
 }
 
 int main(int argc, char* argv[])
@@ -104,8 +102,7 @@ int main(int argc, char* argv[])
     }
 
     {  // Part 1
-        const auto len = bfs(grid).value();
-        std::cout << len << '\n';
+        std::cout << bfs(grid).value() << '\n';
     }
     {  // Part 2
         for (size_t i = 1024; i < lines.size(); ++i) {
