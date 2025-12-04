@@ -26,49 +26,31 @@ static bool readFile(const std::string& fileName, std::vector<std::string>& line
     return true;
 }
 
-using Pos = std::array<uint8_t, 2>;
+using Pos = std::array<uint16_t, 2>;
+using Grid = std::vector<std::string>;
 constexpr const auto roll = '@';
+constexpr std::array<std::array<int16_t, 2>, 8> adjs{
+    {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1}}};
 
-size_t getAdjCount(const std::vector<std::string>& grid, const Pos& pos)
+size_t getAdjCount(const Grid& grid, const Pos& pos)
 {
     const auto [r, c] = pos;
     size_t count = 0;
-    if (r < grid.size() - 1 && grid[r + 1][c] == roll) {
-        ++count;
-    }
-    if (r > 0 && grid[r - 1][c] == roll) {
-        ++count;
-    }
-    if (c < grid[r].size() - 1 && grid[r][c + 1] == roll) {
-        ++count;
-    }
-    if (c > 0 && grid[r][c - 1] == roll) {
-        ++count;
-    }
-    if (r < grid.size() - 1 && c < grid[r].size() - 1 && grid[r + 1][c + 1] == roll) {
-        ++count;
-    }
-    if (r < grid.size() - 1 && c > 0 && grid[r + 1][c - 1] == roll) {
-        ++count;
-    }
-    if (r > 0 && c < grid[r].size() - 1 && grid[r - 1][c + 1] == roll) {
-        ++count;
-    }
-    if (r > 0 && c > 0 && grid[r - 1][c - 1] == roll) {
-        ++count;
+    for (const auto [rr, cc] : adjs) {
+        count += grid[r + rr][c + cc] == roll ? 1 : 0;
     }
     return count;
 }
 
-std::vector<Pos> getMovable(const std::vector<std::string>& grid)
+std::vector<Pos> getMovable(const Grid& grid)
 {
     std::vector<Pos> movables;
-    for (size_t r = 0; r < grid.size(); ++r) {
-        for (size_t c = 0; c < grid[r].size(); ++c) {
+    for (size_t r = 1; r < grid.size() - 1; ++r) {
+        for (size_t c = 1; c < grid[r].size() - 1; ++c) {
             if (grid[r][c] != roll) {
                 continue;
             }
-            if (auto pos = Pos{static_cast<uint8_t>(r), static_cast<uint8_t>(c)}; getAdjCount(grid, pos) < 4) {
+            if (auto pos = Pos{static_cast<uint16_t>(r), static_cast<uint16_t>(c)}; getAdjCount(grid, pos) < 4) {
                 movables.push_back(pos);
             }
         }
@@ -76,54 +58,39 @@ std::vector<Pos> getMovable(const std::vector<std::string>& grid)
     return movables;
 }
 
-size_t bfs(const std::vector<std::string>& grid, const std::vector<Pos>& init)
+size_t bfs(Grid visited, const std::vector<Pos>& init)
 {
     size_t sum = 0;
-    auto visited = grid;
     std::queue<Pos> q;
     for (const auto& pos : init) {
         const auto [r, c] = pos;
         visited[r][c] = '+';
         q.push(pos);
     }
-    const auto mayPushQ = [&](Pos next) {
-        const auto [r, c] = next;
-        if (visited[r][c] == roll && getAdjCount(visited, next) < 4) {
-            visited[r][c] = '+';
-            q.push(next);
-        }
-    };
     while (!q.empty()) {
         ++sum;
-        const auto pos = q.front();
+        const auto [r, c] = q.front();
         q.pop();
-        const auto [r, c] = pos;
-        if (r < grid.size() - 1) {
-            mayPushQ({static_cast<uint8_t>(r + 1), static_cast<uint8_t>(c)});
-        }
-        if (r > 0) {
-            mayPushQ({static_cast<uint8_t>(r - 1), static_cast<uint8_t>(c)});
-        }
-        if (c < grid[r].size() - 1) {
-            mayPushQ({static_cast<uint8_t>(r), static_cast<uint8_t>(c + 1)});
-        }
-        if (c > 0) {
-            mayPushQ({static_cast<uint8_t>(r), static_cast<uint8_t>(c - 1)});
-        }
-        if (r < grid.size() - 1 && c < grid[r].size() - 1) {
-            mayPushQ({static_cast<uint8_t>(r + 1), static_cast<uint8_t>(c + 1)});
-        }
-        if (r < grid.size() - 1 && c > 0) {
-            mayPushQ({static_cast<uint8_t>(r + 1), static_cast<uint8_t>(c - 1)});
-        }
-        if (r > 0 && c < grid[r].size() - 1) {
-            mayPushQ({static_cast<uint8_t>(r - 1), static_cast<uint8_t>(c + 1)});
-        }
-        if (r > 0 && c > 0) {
-            mayPushQ({static_cast<uint8_t>(r - 1), static_cast<uint8_t>(c - 1)});
+        for (const auto [rr, cc] : adjs) {
+            if (visited[r + rr][c + cc] != roll) {
+                continue;
+            }
+            if (auto pos = Pos{static_cast<uint16_t>(r + rr), static_cast<uint16_t>(c + cc)};
+                getAdjCount(visited, pos) < 4) {
+                visited[r + rr][c + cc] = '+';
+                q.push(pos);
+            }
         }
     }
     return sum;
+}
+
+void enlarge(Grid& grid, std::string::value_type c = '.')
+{
+    const std::string border(grid[0].size(), c);
+    grid.insert(grid.begin(), border);
+    grid.emplace_back(border);
+    std::transform(grid.begin(), grid.end(), grid.begin(), [c](auto& row) { return c + std::move(row) + c; });
 }
 
 int main(int argc, char* argv[])
@@ -131,11 +98,12 @@ int main(int argc, char* argv[])
     if (argc != 2) {
         return EXIT_FAILURE;
     }
-    std::vector<std::string> grid{};
+    Grid grid{};
     if (!readFile(argv[1], grid)) {
         return EXIT_FAILURE;
     }
 
+    enlarge(grid);
     auto movables = getMovable(grid);
 
     {  // Part 1
