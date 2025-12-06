@@ -45,8 +45,8 @@ int main(int argc, char* argv[])
         if (iss >> s) {
             iss.ignore(1);
             iss >> e;
-            assert(s <= e);
-            ranges.push_back({s, e});
+            assert(s < e + 1);
+            ranges.push_back({s, e + 1});  // excluding ending point
         } else {
             break;
         }
@@ -59,7 +59,7 @@ int main(int argc, char* argv[])
             uint64_t id{};
             if (iss >> id) {
                 for (const auto [s, e] : ranges) {
-                    if (s <= id && id <= e) {
+                    if (s <= id && id < e) {
                         ++sum;
                         break;
                     }
@@ -72,42 +72,33 @@ int main(int argc, char* argv[])
         // make ranges disjunct while keeping invalid ones
         for (size_t i = 0; i < ranges.size(); ++i) {
             auto [si, ei] = ranges[i];
-            if (si > ei) {
-                continue;  // invalid -> skip
-            }
             for (size_t j = i + 1; j < ranges.size(); ++j) {
                 auto [sj, ej] = ranges[j];
-                if (sj > ej) {
-                    continue;  // invalid -> skip
-                }
-                if (sj > ei) {
+                if (sj >= ei) {
                     continue;  // no overlap -> skip
                 }
-                if (si > ej) {
+                if (si >= ej) {
                     continue;  // no overlap -> skip
                 }
                 if (si >= sj && ei <= ej) {
-                    ranges[i] = {1, 0};  // full inclusion -> invalidate
+                    ranges[i] = {0, 0};  // full inclusion -> empty
                     break;
                 }
                 if (sj >= si && ej <= ei) {
-                    ranges[j] = {1, 0};  // full inclusion -> invalidate
+                    ranges[j] = {0, 0};  // full inclusion -> empty
                     continue;
                 }
-                if (ei >= sj && sj >= si) {
-                    ranges[j] = {ei + 1, ej};  // partial overlap -> cut
-                } else if (ej >= si && si >= sj) {
-                    ranges[j] = {sj, si - 1};  // partial overlap -> cut
+                if (ei > sj && sj >= si) {
+                    ranges[j] = {ei, ej};  // partial overlap -> cut
+                } else if (ej > si && si >= sj) {
+                    ranges[j] = {sj, si};  // partial overlap -> cut
                 }
             }
         }
 
         uint64_t sum = 0;
         for (const auto [s, e] : ranges) {
-            if (s > e) {
-                continue;
-            }
-            sum += e - s + 1;
+            sum += e - s;
         }
         std::cout << sum << '\n';
     }
